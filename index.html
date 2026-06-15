@@ -308,6 +308,30 @@
         box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
       }
 
+      /* ---------- 인프라 백과 사이드바 토글 버튼 (탭 아님 — 독립) ---------- */
+      .encyclo-toggle {
+        margin-left: auto;
+        font-family: "Jua";
+        white-space: nowrap;
+        padding: 0.6rem 0.85rem;
+        border-radius: 12px;
+        color: var(--ink-dim);
+        cursor: pointer;
+        transition: 0.18s;
+        border: 1px dashed var(--line);
+        background: transparent;
+      }
+      .encyclo-toggle:hover {
+        color: var(--ink);
+        background: rgba(255, 255, 255, 0.05);
+      }
+      /* 사이드바가 '열려 있을 때'만 강조 — 탭 활성과 완전히 무관 */
+      .encyclo-toggle.open {
+        color: #fff;
+        background: color-mix(in srgb, var(--good) 28%, transparent);
+        border: 1px solid var(--good);
+      }
+
       /* ---------- MAP ---------- */
       #mapViewport {
         position: relative;
@@ -970,9 +994,8 @@
           👑 MCU 통제실
         </div>
         <button
-          class="tabbtn"
+          class="encyclo-toggle"
           id="encycloSideBtn"
-          style="margin-left: auto; border: 1px dashed var(--line)"
           onclick="toggleEncycloSidebar()"
         >
           🏛️ 인프라 백과
@@ -2267,7 +2290,7 @@
         const open = d.classList.toggle("open"); // 사이드바 열림 상태 (탭 활성과 분리)
         if (app) app.classList.toggle("sidebar-open", open); // ★ 콘텐츠를 밀어냄
         if (b) b.classList.toggle("show", open); // 좁은 화면에서만 백드롭
-        if (btn) btn.classList.toggle("active", open); // 버튼 눌림 표시
+        if (btn) btn.classList.toggle("open", open); // 사이드바 열림 표시 (탭 active와 무관)
         // 맵 탭이 활성일 때 사이드바 토글로 너비가 바뀌면 맵 변환 재적용
         if (currentTab === "map") setTimeout(() => applyMapTransform && applyMapTransform(), 300);
       }
@@ -3907,8 +3930,28 @@
           return;
         }
 
-        // 학생(소유자) 판매 — 건설비의 30%만 환급
+        // 학생(소유자) 판매 — 건설비의 30%만 환급 + ★ 건설 시 받은 즉시효과 회수(꼼수 차단)
         const refund = Math.round(effCost(targetKey, b) * SELL_REFUND_RATE);
+        // 즉시효과(b.e)로 올랐던 스탯을 그대로 되돌린다 (병원 짓고 팔아 지지율만 챙기는 등 방지)
+        const undo = [];
+        let undoGpol = 0;
+        for (const k in b.e) {
+          if (k === "pol" || k === "gpol") {
+            undoGpol -= b.e[k];
+            continue;
+          }
+          const labelMap = {
+            pop: "인구",
+            hap: "지지율",
+            eco: "자본",
+            mil: "군사력",
+            cul: "문화력",
+          };
+          if (b.e[k]) undo.push((labelMap[k] || k) + " " + (b.e[k] > 0 ? "-" : "+") + Math.abs(b.e[k]));
+        }
+        const undoNote = undo.length
+          ? "\n※ 건설 때 받은 즉시효과(" + undo.join(", ") + ")도 함께 회수됩니다."
+          : "";
         const ok1 = confirm(
           "🏚️ [건물 판매]\n" +
             b.icon +
@@ -3916,14 +3959,34 @@
             b.name +
             " 을(를) 철거하고 팔겠습니까?\n\n환급금: " +
             fmt(refund) +
-            "골드 (건설비의 30%만 돌려받아요)\n※ 건물이 주던 효과도 사라집니다.",
+            "골드 (건설비의 30%만 돌려받아요)" +
+            undoNote,
         );
         if (!ok1) return;
+        // 즉시효과 되돌리기
+        for (const k in b.e) {
+          if (k === "pol" || k === "gpol") continue;
+          n[k] = (n[k] || 0) - b.e[k];
+        }
         n.grid[idx] = "";
         n.eco = (n.eco || 0) + refund;
-        await Data.update("nations/" + targetKey, { grid: n.grid, eco: n.eco });
+        // 안전 클램프 (회수로 음수가 되지 않도록)
+        n.hap = clamp(Math.round(n.hap || 0), MIN_HAP, 100);
+        n.pop = Math.max(1000, Math.round(n.pop || 0));
+        n.eco = Math.max(0, Math.round(n.eco));
+        n.mil = Math.max(0, Math.round(n.mil || 0));
+        n.cul = Math.max(0, Math.round(n.cul || 0));
+        await Data.update("nations/" + targetKey, {
+          grid: n.grid,
+          eco: n.eco,
+          pop: n.pop,
+          hap: n.hap,
+          mil: n.mil,
+          cul: n.cul,
+        });
+        if (undoGpol) await applyGlobalPol(undoGpol);
         closeModal("buildModal");
-        toast("🏚️ 건물을 팔아 " + fmt(refund) + "골드를 받았습니다.", "good");
+        toast("🏚️ 건물을 팔아 " + fmt(refund) + "골드를 받았습니다. (즉시효과 회수)", "good");
       }
       window.doDemolish = doDemolish;
 
@@ -4329,6 +4392,21 @@
           toast("골드가 부족합니다. (필요: " + fmt(cost) + "G)", "bad");
           return;
         }
+        // ★ 실수 방지 — 이중 확인 (250골드는 큰 돈이라 잘못 누르는 학생이 많음)
+        const ok1 = confirm(
+          "🌱 [환경 기부]\n" +
+            fmt(cost) +
+            "골드를 기부해 지구 오염도를 12 낮춥니다.\n\n정말 기부하시겠습니까?",
+        );
+        if (!ok1) return;
+        const ok2 = confirm(
+          "💰 다시 한 번 확인할게요!\n\n" +
+            fmt(cost) +
+            "골드가 빠져나갑니다. (현재 보유: " +
+            fmt(n.eco) +
+            "G)\n기부를 진행할까요?",
+        );
+        if (!ok2) return;
         n.eco -= cost;
         await Data.update("nations/" + key, { eco: Math.round(n.eco) });
         await applyGlobalPol(-12); // ★ 지구 공동 오염도를 함께 낮춤
@@ -5284,6 +5362,7 @@
               cardTitle: card.title,
               photo: dataUrl,
               status: "pending",
+              turn: rec.turn || state.meta.turn || 1,
               ts: Date.now(),
             });
             await Data.set("field/" + key, {
@@ -5304,9 +5383,13 @@
       async function approveSubmission(sid) {
         const sub = state.submissions && state.submissions[sid];
         if (!sub) return;
+        // ★ 기존 field 레코드의 turn을 보존 (안 그러면 '이번 턴 완료' 판정이 깨져 침략이 안 열림)
+        const prev = state.field && state.field[sub.nation];
+        const keepTurn = (prev && prev.turn) || sub.turn || state.meta.turn || 1;
         await Data.set("field/" + sub.nation, {
           cardId: sub.cardId,
           status: "approved",
+          turn: keepTurn,
           ts: Date.now(),
         });
         await applyDelta(sub.nation, { cul: FIELD_REWARD_CUL }, {});
@@ -5331,9 +5414,13 @@
       async function rejectSubmission(sid) {
         const sub = state.submissions && state.submissions[sid];
         if (!sub) return;
+        // ★ turn 보존 — 반려돼도 '이번 턴에 이미 미션을 뽑았다'는 기록은 유지
+        const prev = state.field && state.field[sub.nation];
+        const keepTurn = (prev && prev.turn) || sub.turn || state.meta.turn || 1;
         await Data.set("field/" + sub.nation, {
           cardId: sub.cardId,
           status: "rejected",
+          turn: keepTurn,
           ts: Date.now(),
         });
         await Data.remove("submissions/" + sid);
