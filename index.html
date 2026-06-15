@@ -496,6 +496,96 @@
       .modal-back.show {
         display: flex;
       }
+      /* ===== 인프라 백과 사이드바 ===== */
+      .side-drawer {
+        position: fixed;
+        top: 0;
+        right: 0;
+        height: 100%;
+        width: 340px;
+        max-width: 86vw;
+        background: var(--panel, #11162a);
+        border-left: 1px solid var(--line);
+        box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
+        z-index: 90;
+        transform: translateX(100%);
+        transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+        display: flex;
+        flex-direction: column;
+      }
+      .side-drawer.open {
+        transform: translateX(0);
+      }
+      .side-drawer-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.9rem 1rem;
+        border-bottom: 1px solid var(--line);
+      }
+      .drawer-backdrop {
+        position: fixed;
+        inset: 0;
+        background: rgba(3, 6, 18, 0.5);
+        z-index: 89;
+        display: none;
+      }
+      .drawer-backdrop.show {
+        display: block;
+      }
+      /* ===== 세계 정상 회담 플로팅 채팅 ===== */
+      #chatFab {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        border: none;
+        background: linear-gradient(135deg, #5b7cfa, #3a56d4);
+        color: #fff;
+        font-size: 1.5rem;
+        cursor: pointer;
+        box-shadow: 0 6px 20px rgba(59, 91, 219, 0.5);
+        z-index: 70;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.15s;
+      }
+      #chatFab:hover {
+        transform: scale(1.08);
+      }
+      #chatFabDot {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        background: var(--bad, #e5484d);
+        border: 2px solid #fff;
+      }
+      #chatPanel {
+        position: fixed;
+        right: 20px;
+        bottom: 88px;
+        width: 360px;
+        max-width: 90vw;
+        height: 520px;
+        max-height: 72vh;
+        background: var(--panel, #11162a);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        box-shadow: 0 16px 50px rgba(0, 0, 0, 0.55);
+        z-index: 71;
+        display: none;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      #chatPanel.open {
+        display: flex;
+      }
       /* 강제 미션 팝업 — 더 어둡고, 빠져나갈 수 없는 느낌 */
       #missionModal {
         z-index: 95;
@@ -793,12 +883,30 @@
           <div class="chip" title="문화력">
             <span>🎭</span><b id="hCul" class="num">0</b>
           </div>
-          <div class="chip" title="오염도">
-            <span>☢️</span><b id="hPol" class="num">0</b>
+          <div class="chip" title="지구 오염도 (모든 나라 공통)">
+            <span>🌍</span><b id="hPol" class="num">0</b>
           </div>
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.5rem">
+          <button
+            id="envDonateBtn"
+            class="btn"
+            title="환경 기부 (250골드로 지구 오염도 낮추기)"
+            style="padding: 0.35rem 0.7rem; font-size: 0.8rem; border-color: var(--good); color: var(--good); display: none"
+            onclick="donateEnv()"
+          >
+            🌱 환경기부
+          </button>
+          <button
+            id="guideHelpBtn"
+            class="btn btn-ghost"
+            title="게임 방법 보기"
+            style="padding: 0.35rem 0.6rem; font-size: 1rem; font-weight: bold"
+            onclick="openGuideModal()"
+          >
+            ?
+          </button>
           <div
             class="badge"
             id="phaseBadge"
@@ -821,7 +929,7 @@
         </div>
       </header>
 
-      <!-- ===== TAB NAV ===== -->
+      <!-- ===== TAB NAV (4개로 축소) ===== -->
       <nav
         class="glass"
         style="
@@ -832,60 +940,29 @@
           overflow-x: auto;
         "
       >
-        <div class="tabbtn active" data-tab="guide">📖 시스템 가이드</div>
-        <div class="tabbtn" data-tab="encyclo">🏛️ 인프라 백과</div>
-        <div class="tabbtn" data-tab="domestic">🏰 국가 내정실</div>
+        <div class="tabbtn active" data-tab="domestic">🏰 국가 내정실</div>
         <div class="tabbtn" data-tab="map">🗺️ 영토 관제망</div>
         <div class="tabbtn" data-tab="war">💥 침략 상황실</div>
-        <div class="tabbtn" data-tab="un">🕊️ 유엔 포럼</div>
         <div class="tabbtn" data-tab="field">🎯 현장 미션</div>
         <div class="tabbtn" data-tab="mcu" id="mcuTabBtn" style="display: none">
           👑 MCU 통제실
         </div>
+        <button
+          class="tabbtn"
+          id="encycloSideBtn"
+          style="margin-left: auto; border: 1px dashed var(--line)"
+          onclick="toggleEncycloSidebar()"
+        >
+          🏛️ 인프라 백과
+        </button>
       </nav>
+
+      <!-- ===== 턴 진행 단계 안내 바 (학생용) ===== -->
+      <div id="turnStepBar" style="display: none; margin: 0 10px 8px"></div>
 
       <!-- ===== TAB PANELS ===== -->
       <main style="flex: 1; overflow: hidden; margin: 0 10px 10px; position: relative">
-        <!-- 1. GUIDE -->
-        <section
-          class="tabpanel active scrolly"
-          data-panel="guide"
-          style="height: 100%; padding-right: 4px"
-        >
-          <div id="guideBody"></div>
-        </section>
-
-        <!-- 2. ENCYCLOPEDIA -->
-        <section
-          class="tabpanel scrolly"
-          data-panel="encyclo"
-          style="height: 100%; padding-right: 4px"
-        >
-          <div class="glass" style="padding: 1rem; margin-bottom: 1rem">
-            <h2 style="font-size: 1.4rem; margin: 0">
-              🏛️ 건설 인프라 백과사전 <span class="badge">25종</span>
-            </h2>
-            <p style="color: var(--ink-dim); font-size: 0.85rem; margin: 0.4rem 0 0">
-              각 건물의 즉시효과 / 턴당효과 / 오염증감을 확인하세요. 클릭하면 상세가
-              펼쳐집니다.<br />
-              <span style="color: var(--warn)"
-                >※ 유지비는 건물 종류가 아니라 <b>지은 건물 개수</b>에 따라 누진세로
-                붙습니다 (3개 이하 무료 · 4개 -15G · 5개 -30G · 6개 -55G …
-                급증).</span
-              >
-            </p>
-          </div>
-          <div
-            id="encycloGrid"
-            style="
-              display: grid;
-              grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-              gap: 12px;
-            "
-          ></div>
-        </section>
-
-        <!-- 3. DOMESTIC -->
+        <!-- DOMESTIC (기본 진입 탭 후보) -->
         <section
           class="tabpanel scrolly"
           data-panel="domestic"
@@ -894,8 +971,8 @@
           <div id="domesticBody"></div>
         </section>
 
-        <!-- 4. MAP -->
-        <section class="tabpanel" data-panel="map" style="height: 100%">
+        <!-- MAP (첫 진입 기본 탭) -->
+        <section class="tabpanel active" data-panel="map" style="height: 100%">
           <div class="glass" style="height: 100%; padding: 8px; position: relative">
             <div
               style="
@@ -923,7 +1000,7 @@
           </div>
         </section>
 
-        <!-- 5. WAR -->
+        <!-- WAR -->
         <section
           class="tabpanel scrolly"
           data-panel="war"
@@ -932,50 +1009,7 @@
           <div id="warBody"></div>
         </section>
 
-        <!-- 6. UN FORUM -->
-        <section class="tabpanel" data-panel="un" style="height: 100%">
-          <div
-            style="
-              display: grid;
-              grid-template-columns: 1fr;
-              gap: 10px;
-              height: 100%;
-              grid-template-rows: auto 1fr;
-            "
-          >
-            <div id="unActions"></div>
-            <div
-              class="glass"
-              style="display: flex; flex-direction: column; min-height: 0; padding: 10px"
-            >
-              <h3 style="margin: 0.2rem 0.4rem 0.6rem; font-size: 1.1rem">
-                🗣️ 세계 정상 회담 채팅
-              </h3>
-              <div
-                id="chatBox"
-                class="scrolly"
-                style="
-                  flex: 1;
-                  min-height: 0;
-                  display: flex;
-                  flex-direction: column;
-                  gap: 0.45rem;
-                  padding: 0.4rem;
-                "
-              ></div>
-              <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem">
-                <input
-                  id="chatInput"
-                  placeholder="전 세계에 메시지 보내기..."
-                  maxlength="200"
-                />
-                <button id="chatSend" class="btn btn-accent">전송</button>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <!-- 6.5 FIELD MISSION (사진 인증) -->
+        <!-- FIELD MISSION (사진 인증) -->
         <section
           class="tabpanel scrolly"
           data-panel="field"
@@ -984,7 +1018,7 @@
           <div id="fieldBody"></div>
         </section>
 
-        <!-- 7. MCU -->
+        <!-- MCU -->
         <section
           class="tabpanel scrolly"
           data-panel="mcu"
@@ -993,6 +1027,60 @@
           <div id="mcuBody"></div>
         </section>
       </main>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- 인프라 백과 사이드바 (토글)                              -->
+    <!-- ====================================================== -->
+    <div id="encycloSidebar" class="side-drawer">
+      <div class="side-drawer-head">
+        <h2 style="font-size: 1.2rem; margin: 0">🏛️ 인프라 백과</h2>
+        <button class="btn btn-ghost" onclick="toggleEncycloSidebar()" style="padding: 0.3rem 0.6rem">✕</button>
+      </div>
+      <div class="scrolly" style="flex: 1; min-height: 0; padding: 0.8rem">
+        <p style="color: var(--ink-dim); font-size: 0.8rem; margin: 0 0 0.8rem">
+          각 건물의 즉시효과 / 턴당효과 / 오염증감을 확인하세요.<br />
+          <span style="color: var(--warn)">※ 유지비는 지은 <b>건물 개수</b>에 따라 누진세로 붙어요 (3개 이하 무료 · 4개부터 급증).</span>
+        </p>
+        <div id="encycloGrid" style="display: grid; grid-template-columns: 1fr; gap: 10px"></div>
+      </div>
+    </div>
+    <div id="encycloBackdrop" class="drawer-backdrop" onclick="toggleEncycloSidebar()"></div>
+
+    <!-- ====================================================== -->
+    <!-- 세계 정상 회담 — 플로팅 채팅 (우측 하단)                  -->
+    <!-- ====================================================== -->
+    <button id="chatFab" onclick="toggleChatPanel()" title="세계 정상 회담 채팅">
+      💬<span id="chatFabDot" style="display:none"></span>
+    </button>
+    <div id="chatPanel">
+      <div class="side-drawer-head" style="padding: 0.7rem 0.9rem">
+        <h3 style="margin: 0; font-size: 1rem">🗣️ 세계 정상 회담</h3>
+        <button class="btn btn-ghost" onclick="toggleChatPanel()" style="padding: 0.25rem 0.55rem">✕</button>
+      </div>
+      <div id="unActions" class="scrolly" style="max-height: 220px; padding: 0 0.6rem; flex-shrink: 0"></div>
+      <div
+        id="chatBox"
+        class="scrolly"
+        style="flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 0.45rem; padding: 0.6rem; border-top: 1px solid var(--line)"
+      ></div>
+      <div style="display: flex; gap: 0.4rem; padding: 0.6rem; border-top: 1px solid var(--line)">
+        <input id="chatInput" placeholder="전 세계에 메시지..." maxlength="200" style="flex:1" />
+        <button id="chatSend" class="btn btn-accent" style="padding: 0.4rem 0.7rem">전송</button>
+      </div>
+    </div>
+
+    <!-- ====================================================== -->
+    <!-- 시스템 가이드 모달 (헤더 ? 버튼)                          -->
+    <!-- ====================================================== -->
+    <div class="modal-back" id="guideModal">
+      <div class="modal glass-strong" style="max-width: 760px">
+        <div style="display: flex; justify-content: space-between; align-items: center">
+          <h2 style="margin: 0; font-size: 1.3rem">📖 게임 방법 (시스템 가이드)</h2>
+          <button class="btn btn-ghost" onclick="closeModal('guideModal')" style="padding: 0.3rem 0.6rem">✕</button>
+        </div>
+        <div id="guideBody" class="scrolly" style="margin-top: 0.8rem; max-height: 70vh"></div>
+      </div>
     </div>
 
     <!-- hidden camera/file input for photo verification -->
@@ -1920,7 +2008,7 @@
         MASTER_PW = "9032";
 
       const state = {
-        meta: { turn: 1, phase: 1, agenda: null }, // agenda = active agenda id or null
+        meta: { turn: 1, phase: 1, agenda: null, globalPol: 0 }, // agenda = active agenda id; globalPol = 지구 공동 오염도
         nations: null, // {capital:{...},...}
         users: {}, // {username:{pw,nation,role}}
         chat: {},
@@ -1942,7 +2030,6 @@
           eco: b.eco,
           mil: b.mil,
           cul: b.cul,
-          pol: b.pol,
           grid: Array(16).fill(""), // ★ null 금지 — Firebase 삭제 버그 방지
           constitution: "우리 " + NATIONS[key].name + "은(는) 자유와 번영을 추구한다.",
           lastVote: "", // "agendaId:choice"
@@ -1960,6 +2047,7 @@
           phase: 1,
           agenda: "",
           ended: false,
+          globalPol: 10, // ★ 지구 공동 오염도 시작값 (천천히 차오름)
         });
         await Data.set("chat", {
           _seed: {
@@ -1996,6 +2084,7 @@
               phase: v.phase || 1,
               agenda: v.agenda || "",
               ended: !!v.ended,
+              globalPol: Math.max(0, Math.round(v.globalPol || 0)),
             };
           }
           renderAll();
@@ -2101,7 +2190,12 @@
         if (ME.role === "master") masterView = masterView || "capital";
         buildEncyclopedia();
         buildGuide();
-        switchTab(ME.role === "master" ? "mcu" : "domestic");
+        // 세계 정상 회담(채팅) 플로팅 버튼 + 환경 기부 버튼은 학생에게 노출
+        const fab = $("#chatFab");
+        if (fab) fab.style.display = "flex"; // 마스터도 채팅 관전 가능
+        const envBtn = $("#envDonateBtn");
+        if (envBtn) envBtn.style.display = ME.role === "student" ? "inline-flex" : "none";
+        switchTab(ME.role === "master" ? "mcu" : "map");
         renderAll();
         // QR로 들어온 미션이 있으면 (데이터가 준비된 경우) 즉시 처리
         if (pendingQRAgenda && state.nations) handleQRAgenda();
@@ -2139,8 +2233,180 @@
         return { phase, top };
       }
 
-      let currentTab = "guide";
+      let currentTab = "map"; // ★ 첫 진입 기본 탭 = 영토 관제망
+
+      /* ===== 오버레이 토글 (인프라 백과 사이드바 / 세계 정상 회담 채팅 / 가이드 모달) ===== */
+      function toggleEncycloSidebar() {
+        const d = $("#encycloSidebar");
+        const b = $("#encycloBackdrop");
+        if (!d) return;
+        const open = d.classList.toggle("open");
+        if (b) b.classList.toggle("show", open);
+      }
+      window.toggleEncycloSidebar = toggleEncycloSidebar;
+
+      function toggleChatPanel() {
+        const p = $("#chatPanel");
+        if (!p) return;
+        const open = p.classList.toggle("open");
+        if (open) {
+          renderUN();
+          renderChat();
+          const dot = $("#chatFabDot");
+          if (dot) dot.style.display = "none";
+          const box = $("#chatBox");
+          if (box) box.scrollTop = box.scrollHeight;
+        }
+      }
+      window.toggleChatPanel = toggleChatPanel;
+
+      function openGuideModal() {
+        openModal("guideModal");
+      }
+      window.openGuideModal = openGuideModal;
+
+      /* ============================================================================
+         턴 진행 단계 (학생 전용) — 정해진 순서로 게임을 진행하도록 안내·유도
+         순서: ① 필수 미션(선택) → ② 현장 미션 → ③ 영토 관제망(건설) → ④ 침략 상황실
+         (건설할 게 없거나 돈이 없으면 ③은 건너뛸 수 있음)
+         ========================================================================== */
+      const TURN_FLOW = ["field", "map", "war"]; // 순서가 강제되는 핵심 탭
+      // 자유롭게 항상 열람 가능한 탭 (참고용)
+      const FREE_TABS = ["domestic", "field", "mcu"];
+
+      function computeTurnStep() {
+        // returns { step: 0..3, needVote, fieldDone, canBuild, labels[] }
+        const key = myNationKey();
+        const n = state.nations ? state.nations[key] : null;
+        const curTurn = state.meta.turn || 1;
+        // ① 필수 미션: 활성 agenda가 있는데 아직 투표 안 했으면 먼저 해야 함
+        const aid = state.meta.agenda;
+        const needVote = !!(aid && AMAP[aid] && n && n.lastVote !== aid);
+        // ② 현장 미션: 이번 턴에 미션을 뽑아 인증(또는 시도)했는지
+        const rec = state.field && state.field[key];
+        const fieldDoneThisTurn =
+          rec &&
+          rec.turn === curTurn &&
+          (rec.status === "pending" ||
+            rec.status === "approved" ||
+            rec.status === "rejected");
+        // ③ 건설 가능 여부: 빈 땅이 있고 가장 싼 건물을 살 돈이 있는지
+        let canBuild = false;
+        if (n && Array.isArray(n.grid)) {
+          const hasEmpty = n.grid.some((g, i) => !g);
+          let cheapest = Infinity;
+          BUILDINGS.forEach((b) => {
+            const c = effCost(key, b);
+            if (c < cheapest) cheapest = c;
+          });
+          canBuild = hasEmpty && (n.eco || 0) >= cheapest;
+        }
+        let step = 0;
+        if (needVote) step = 0;
+        else if (!fieldDoneThisTurn) step = 1;
+        else if (canBuild) step = 2;
+        else step = 3;
+        return { step, needVote, fieldDoneThisTurn, canBuild };
+      }
+
+      /* 특정 탭이 지금 열람 가능한지 (순서 유도) */
+      function isTabUnlocked(name) {
+        if (!ME || ME.role === "master") return true; // 마스터는 제한 없음
+        if (FREE_TABS.includes(name)) return true; // 자유 탭은 항상 OK
+        // 영토 관제망(map)은 '우리 나라 홈'이라 항상 열람 가능 (첫 진입 기본 탭)
+        if (name === "map") return true;
+        const st = computeTurnStep();
+        if (name === "war") {
+          // 침략 상황실: 필수미션·현장미션을 끝낸 뒤에 열림 (전쟁은 마지막 단계)
+          return !st.needVote && st.fieldDoneThisTurn;
+        }
+        return true;
+      }
+
+      function renderTurnStepBar() {
+        const bar = $("#turnStepBar");
+        if (!bar) return;
+        if (!ME || ME.role === "master" || !state.nations) {
+          bar.style.display = "none";
+          return;
+        }
+        const st = computeTurnStep();
+        const steps = [
+          { key: "vote", icon: "📋", label: "필수 미션" },
+          { key: "field", icon: "🎯", label: "현장 미션" },
+          { key: "build", icon: "🗺️", label: "건설" },
+          { key: "war", icon: "💥", label: "침략(선택)" },
+        ];
+        let inner =
+          '<div class="glass" style="padding:.5rem .7rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.78rem;">';
+        inner +=
+          '<span style="font-weight:bold;color:var(--ink-dim);margin-right:.2rem;">📍 진행 순서</span>';
+        steps.forEach((s, i) => {
+          const done = i < st.step;
+          const active = i === st.step;
+          const color = done
+            ? "var(--good)"
+            : active
+              ? "var(--accent)"
+              : "var(--ink-faint)";
+          const bg = active ? "rgba(122,162,255,.18)" : "transparent";
+          inner +=
+            '<span style="display:inline-flex;align-items:center;gap:.2rem;padding:.2rem .5rem;border-radius:999px;background:' +
+            bg +
+            ";color:" +
+            color +
+            ";font-weight:" +
+            (active ? "bold" : "normal") +
+            ';">' +
+            (done ? "✅" : s.icon) +
+            " " +
+            s.label +
+            "</span>";
+          if (i < steps.length - 1)
+            inner +=
+              '<span style="color:var(--ink-faint);">→</span>';
+        });
+        // 현재 단계 안내 문구
+        let hint = "";
+        if (st.needVote)
+          hint = "지금은 <b>필수 미션(📋)</b>을 모둠과 상의해 결정할 차례예요.";
+        else if (!st.fieldDoneThisTurn)
+          hint =
+            "이제 <b>현장 미션(🎯)</b> 탭에서 오늘의 시민 미션을 뽑아 실천·인증하세요.";
+        else if (st.canBuild)
+          hint =
+            "<b>영토 관제망(🗺️)</b>에서 건물을 지으세요. 그다음 침략 상황실이 열려요.";
+        else hint = "<b>침략 상황실(💥)</b>은 선택이에요. 채팅(💬)으로 외교도 좋아요!";
+        inner +=
+          '<span style="flex-basis:100%;color:var(--ink-dim);margin-top:.3rem;">💡 ' +
+          hint +
+          "</span>";
+        inner += "</div>";
+        bar.style.display = "block";
+        bar.innerHTML = inner;
+      }
+
       function switchTab(name) {
+        // ★ 학생은 현장 미션을 끝낸 뒤에 침략 상황실(war)에 진입 가능
+        if (!isTabUnlocked(name)) {
+          const st = computeTurnStep();
+          if (st.needVote) {
+            toast(
+              "📋 먼저 <b>필수 미션</b>을 결정하세요! (화면에 뜬 미션 팝업에서 선택)",
+              "warn",
+            );
+            return;
+          }
+          if (!st.fieldDoneThisTurn) {
+            toast(
+              "🎯 <b>침략 상황실</b>은 현장 미션을 끝낸 뒤에 열려요! 먼저 오늘의 미션을 실천·인증하세요.",
+              "warn",
+            );
+            switchTab("field");
+            return;
+          }
+          return;
+        }
         currentTab = name;
         $$(".tabbtn").forEach((b) =>
           b.classList.toggle("active", b.dataset.tab === name),
@@ -2149,6 +2415,7 @@
           p.classList.toggle("active", p.dataset.panel === name),
         );
         renderTab(name);
+        renderTurnStepBar();
         if (name === "map") {
           if (!mapState._centered) {
             centerMap();
@@ -2161,10 +2428,6 @@
 
       function renderTab(name) {
         switch (name) {
-          case "guide":
-            /* static, built once */ break;
-          case "encyclo":
-            /* static, built once */ break;
           case "domestic":
             renderDomestic();
             break;
@@ -2174,10 +2437,6 @@
           case "war":
             renderWar();
             break;
-          case "un":
-            renderUN();
-            renderChat();
-            break;
           case "field":
             renderField();
             break;
@@ -2185,6 +2444,9 @@
             renderMCU();
             break;
         }
+        // 채팅·외교 패널은 플로팅이라 탭과 무관하게 항상 갱신
+        renderUN();
+        renderChat();
       }
 
       function renderHUD() {
@@ -2208,9 +2470,19 @@
           $("#hMil").textContent = fmt(n.mil);
           $("#hCul").textContent = fmt(n.cul);
           const polEl = $("#hPol");
-          polEl.textContent = Math.round(n.pol);
+          const gp = getGlobalPol(); // ★ 지구 공동 오염도 (모든 나라 동일)
+          polEl.textContent = gp;
           polEl.style.color =
-            n.pol >= 100 ? "var(--bad)" : n.pol >= 80 ? "var(--warn)" : "var(--ink)";
+            gp >= 100 ? "var(--bad)" : gp >= 80 ? "var(--warn)" : "var(--ink)";
+        }
+
+        // 환경 기부 버튼 — 비용 표시 + 잔액 부족 시 비활성화
+        const envBtn = $("#envDonateBtn");
+        if (envBtn && ME.role === "student" && n) {
+          const cost = envCost(key);
+          envBtn.textContent = "🌱 환경기부 " + fmt(cost) + "G";
+          envBtn.disabled = (n.eco || 0) < cost;
+          envBtn.style.opacity = envBtn.disabled ? "0.5" : "1";
         }
       }
 
@@ -2220,7 +2492,29 @@
           masterView = "capital";
         renderHUD();
         renderTab(currentTab);
+        renderTurnStepBar();
+        updateTabLocks();
         maybeShowMission(); // 활성 미션이 있으면 학생에게 강제 팝업
+      }
+
+      /* 잠긴 탭에 자물쇠 표시 (학생용 순서 유도) */
+      function updateTabLocks() {
+        if (!ME) return;
+        $$(".tabbtn").forEach((b) => {
+          const t = b.dataset.tab;
+          if (!t) return;
+          const baseLabel = b.dataset.baselabel || b.textContent.replace(/^🔒\s*/, "");
+          if (!b.dataset.baselabel) b.dataset.baselabel = baseLabel;
+          if (ME.role !== "master" && !isTabUnlocked(t)) {
+            b.style.opacity = "0.45";
+            b.title = "아직 잠김 — 진행 순서를 따라주세요";
+            if (!/^🔒/.test(b.textContent)) b.textContent = "🔒 " + baseLabel;
+          } else {
+            b.style.opacity = "";
+            b.title = "";
+            b.textContent = baseLabel;
+          }
+        });
       }
 
       /* ----------------------------------------------------------------------------
@@ -2294,8 +2588,8 @@
               "· <b>유지비(누진세)</b> — 건물 개수에 따라 차감 (3개↓ 무료 · 4개 -15G · 5개 -30G · 6개 -55G … 급증)<br>" +
               "· 인구와 지지율에 비례해 <b>세금(자본)</b> 징수<br>" +
               "· <b>순수입 = 건물 생산 + 세금 − 유지비</b><br>" +
-              "· 오염도 <b>80↑</b> 이면 매 턴 지지율 -5<br>" +
-              "· 오염도 <b>100↑</b> 이면 <b>대재앙!</b> 세금이 절반으로 반토막<br>" +
+              "· 🌍 <b>지구 오염도 80↑</b> 이면 매 턴 <b>모든 나라</b> 지지율 -5<br>" +
+              "· 🌍 <b>지구 오염도 100↑</b> 이면 <b>전 세계 대재앙!</b> 모든 나라 세금이 절반으로 반토막<br>" +
               "· 지지율은 <b>최소 15%</b> 보장 (나라가 망해도 최소 세금은 들어옴)<br>" +
               "· 인구는 최소 <b class='num'>1,000</b>명 보장 (파산 방지)",
           ],
@@ -2311,7 +2605,7 @@
           ],
           [
             "🏛️ 건물 (25종)",
-            "건물마다 <b>즉시효과</b>·<b>턴당효과</b>·<b>유지비</b>·<b>오염증감</b>이 달라요. '인프라 백과' 탭에서 모두 확인하세요.<br>오염과 유지비는 <b>턴이 끝날 때</b> 정산됩니다. 발전소는 자본을 많이 주지만 오염이 커요. <b>정화탑·숲·공원</b>으로 오염을 꼭 관리하세요!",
+            "건물마다 <b>즉시효과</b>·<b>턴당효과</b>·<b>유지비</b>·<b>오염증감</b>이 달라요. '인프라 백과' 탭에서 모두 확인하세요.<br>건물의 오염은 🌍 <b>지구 오염도</b>에 쌓여요(모든 나라 공동!). 발전소·공장은 자본을 많이 주지만 지구를 더럽혀요. <b>정화탑·숲·공원</b>과 <b>환경 기부</b>로 다같이 오염을 관리하세요!",
           ],
           [
             "📋 필수 미션 (QR 팝업)",
@@ -2324,7 +2618,7 @@
           ],
           [
             "💥 침략 상황실",
-            "타국 영토를 공격해 <b>건물을 부수고 그 땅을 점령</b>합니다! 🚩<br>· <b>무력 폭격</b> — 군사력 150 소모 (강철 제국 20% 할인)<br>· <b>문화 침투</b> — 문화력 200 소모 (지혜 제국 20% 할인)<br>· 전리품: 소모 비용의 <b>40%</b> 획득<br>· 적 영토에 <b>요새·방공망</b>이 있으면 비용 +100~300 급증!<br>· ⛔ <b>1턴에 한 나라당 1번만</b> 침략 가능 (모든 나라를 치면 최대 3회)<br>· 🚩 점령당한 땅은 주인이 <b>다시 건물을 지어 '탈환'</b>할 수 있어요.",
+            "타국 영토를 공격해 <b>건물을 부수고 그 땅을 점령</b>합니다! 🚩<br>· <b>무력 폭격</b> — 군사력 150 소모 (강철 제국 20% 할인)<br>· <b>문화 침투</b> — 문화력 200 소모 (지혜 제국 20% 할인)<br>· 전리품: 소모 비용의 <b>40%</b> 획득<br>· 🛡️ <b>방어시설(요새·방공망)</b>이 있으면 적의 공격을 <b>막아냅니다!</b> 공격은 방어시설을 먼저 파괴하고, 영토는 지켜져요. 방어시설을 다 부순 뒤에야 점령 가능!<br>· ⛔ <b>1턴에 한 나라당 1번만</b> 침략 가능 (모든 나라를 치면 최대 3회)<br>· 🚩 점령당한 땅은 주인이 <b>다시 건물을 지어 '탈환'</b>할 수 있어요.",
           ],
           [
             "🎯 현장 미션 (사진 인증)",
@@ -2340,7 +2634,7 @@
           ],
           [
             "🕊️ 유엔 포럼",
-            "· <b>전체 채팅</b>으로 외교와 협상을 나눠요.<br>· <b>환경 기부</b> — 250골드로 내 오염도 -10 (지혜 제국은 20% 할인 → 200G)<br>· <b>구호 원조</b> — 다른 나라를 도우면 원조량의 70%만큼 문화력 보너스! (강철 제국은 120%)<br>· ⚠️ 원조엔 <b>물자 수송 수수료 20%</b>가 붙어요 — 받는 나라는 80%만 받습니다. (돈을 주고받는 꼼수로는 점점 가난해져요!)",
+            "· <b>전체 채팅</b>으로 외교와 협상을 나눠요.<br>· <b>환경 기부</b> — 250골드로 🌍 지구 오염도 -12 (지혜 제국은 20% 할인 → 200G)<br>· <b>구호 원조</b> — 다른 나라를 도우면 원조량의 70%만큼 문화력 보너스! (강철 제국은 120%)<br>· ⚠️ 원조엔 <b>물자 수송 수수료 20%</b>가 붙어요 — 받는 나라는 80%만 받습니다. (돈을 주고받는 꼼수로는 점점 가난해져요!)",
           ],
           [
             "🗺️ 영토 관제망 사용법",
@@ -2415,11 +2709,11 @@
         const n = clone(state.nations[key]);
         for (const k in delta) {
           if (k === "grid" || k === "constitution" || k === "lastVote") continue;
+          if (k === "pol" || k === "gpol") continue; // ★ 오염은 지구 공동 수치(meta)로만 관리
           n[k] = (n[k] || 0) + delta[k];
         }
         // safety clamps (지지율 15% 하한선 — soft-lock 방지)
         n.hap = clamp(Math.round(n.hap), MIN_HAP, 100);
-        n.pol = Math.max(0, Math.round(n.pol));
         n.pop = Math.max(1000, Math.round(n.pop)); // ★ 최소 인구 1,000 보장
         n.eco = Math.max(0, Math.round(n.eco));
         n.mil = Math.max(0, Math.round(n.mil));
@@ -2430,21 +2724,23 @@
           eco: n.eco,
           mil: n.mil,
           cul: n.cul,
-          pol: n.pol,
         };
         if (extra) Object.assign(payload, extra);
         await Data.update("nations/" + key, payload);
       }
 
       /* 글로벌 오염(gpol) — 모든 국가의 오염도에 동시 적용 (공유지의 비극) */
+      /* ★ 지구 공동 오염도(globalPol) — 모든 나라가 공유하는 단 하나의 오염 수치.
+         어느 나라가 공장을 돌리든 '지구 전체'가 더러워지고, 그 피해도 전 나라가 함께 받는다.
+         (공유지의 비극을 체감시키는 교육적 핵심 장치) */
+      function getGlobalPol() {
+        return Math.max(0, Math.round((state.meta && state.meta.globalPol) || 0));
+      }
       async function applyGlobalPol(amount) {
-        if (!amount || !state.nations) return;
-        for (const k of NATION_ORDER) {
-          const nn = state.nations[k];
-          if (!nn) continue;
-          const newPol = Math.max(0, Math.round((nn.pol || 0) + amount));
-          await Data.update("nations/" + k, { pol: newPol });
-        }
+        if (!amount) return;
+        const cur = getGlobalPol();
+        const next = Math.max(0, Math.round(cur + amount));
+        await Data.update("meta", { globalPol: next });
       }
 
       async function voteAgenda(choice) {
@@ -2638,24 +2934,16 @@
         if (!state.nations) return;
         const body = $("#endingBody");
         if (!body) return;
-        // 글로벌 평균 오염도
-        let polSum = 0,
-          cnt = 0;
-        NATION_ORDER.forEach((k) => {
-          if (state.nations[k]) {
-            polSum += state.nations[k].pol || 0;
-            cnt++;
-          }
-        });
-        const avgPol = cnt ? Math.round(polSum / cnt) : 0;
+        // ★ 지구 공동 오염도로 생존 판정 (나라별 평균이 아니라 단일 공유값)
+        const avgPol = getGlobalPol();
         const survived = avgPol < 100;
-        // 수상 국가
+        // 수상 국가 (오염은 공동값이라 '가장 깨끗한 국가' 상은 제외)
         const awards = [
           ["🏆 가장 번영한 국가", "최고 자본", topNationBy((n) => n.eco), "💰"],
           ["🕊️ 가장 평화로운 국가", "최고 문화력", topNationBy((n) => n.cul), "🎭"],
-          ["🌱 가장 깨끗한 국가", "최저 오염도", bottomNationBy((n) => n.pol), "☢️"],
           ["👥 가장 큰 나라", "최다 인구", topNationBy((n) => n.pop), "👥"],
           ["⚔️ 최강 군사 국가", "최고 군사력", topNationBy((n) => n.mil), "⚔️"],
+          ["😊 가장 행복한 국가", "최고 지지율", topNationBy((n) => n.hap), "😊"],
         ];
         const awardRows = awards
           .map((a) => {
@@ -2847,21 +3135,21 @@
             "linear-gradient(90deg,#c084fc,#a855f7)",
           ) +
           statRow(
-            "오염도",
-            "☢️",
-            n.pol,
+            "🌍 지구 오염도",
+            "🌍",
+            getGlobalPol(),
             150,
-            n.pol >= 100
+            getGlobalPol() >= 100
               ? "linear-gradient(90deg,#ef4444,#b91c1c)"
-              : n.pol >= 80
+              : getGlobalPol() >= 80
                 ? "linear-gradient(90deg,#f59e0b,#d97706)"
                 : "linear-gradient(90deg,#84cc16,#65a30d)",
           ) +
-          (n.pol >= 100
-            ? '<div style="color:var(--bad);font-size:.8rem;margin-top:.3rem;">⚠️ 오염 100 초과! 다음 정산에서 세금이 반토막 납니다.</div>'
-            : n.pol >= 80
-              ? '<div style="color:var(--warn);font-size:.8rem;margin-top:.3rem;">⚠️ 오염 80 이상! 매 턴 지지율이 떨어집니다.</div>'
-              : "") +
+          (getGlobalPol() >= 100
+            ? '<div style="color:var(--bad);font-size:.8rem;margin-top:.3rem;">⚠️ 지구 오염 100 초과! 모든 나라 세금이 반토막 납니다. 함께 환경 기부로 낮추세요!</div>'
+            : getGlobalPol() >= 80
+              ? '<div style="color:var(--warn);font-size:.8rem;margin-top:.3rem;">⚠️ 지구 오염 80 이상! 모든 나라 지지율이 매 턴 떨어집니다.</div>'
+              : '<div style="color:var(--ink-dim);font-size:.75rem;margin-top:.3rem;">🌍 오염도는 모든 나라가 함께 만들고 함께 책임지는 <b>지구 공동 수치</b>예요.</div>') +
           "</div>";
 
         // ── 턴당 경제 요약 (생산 / 세금 / 유지비 / 순수입) ──
@@ -2871,7 +3159,7 @@
           if (B && B.p && B.p.eco) prodEco += B.p.eco * counts[bid];
         }
         let projTax = Math.round((n.pop / 1000) * (n.hap / 100) * 60);
-        if (n.pol > 100) projTax = Math.round(projTax * 0.5);
+        if (getGlobalPol() > 100) projTax = Math.round(projTax * 0.5);
         const builtNow = (n.grid || []).filter((id) => id).length;
         const upkeep = nationUpkeep(n.grid);
         const nextDelta = marginalUpkeep(builtNow);
@@ -3146,8 +3434,8 @@
             fmt(n.pop) +
             " · 💰" +
             fmt(n.eco) +
-            " · ☢️" +
-            Math.round(n.pol) +
+            " · 🎭" +
+            fmt(n.cul) +
             "</div>" +
             "</div>";
         });
@@ -3368,6 +3656,17 @@
               "'," +
               idx +
               ')">💣 강제 폭파 (철거)</button>';
+          } else if (isOwner) {
+            const refund = Math.round(effCost(targetKey, b) * SELL_REFUND_RATE);
+            h +=
+              '<div class="divider"></div><div style="font-size:.8rem;color:var(--ink-dim);margin-bottom:.5rem;">🏚️ 이 건물을 팔면 건설비의 <b>30%</b>인 <b style="color:var(--c-capital)">' +
+              fmt(refund) +
+              "골드</b>를 돌려받아요. (건물 효과도 사라집니다)</div>" +
+              '<button class="btn btn-bad" style="width:100%;" onclick="doDemolish(\'' +
+              targetKey +
+              "'," +
+              idx +
+              ')">🏚️ 건물 팔기 (헐값 환급)</button>';
           } else {
             h +=
               '<div style="color:var(--ink-faint);font-size:.85rem;">이미 건물이 있는 땅입니다.</div>';
@@ -3515,14 +3814,18 @@
         }
 
         if (!isMaster) n.eco -= cost;
-        // apply immediate onBuild effects
+        // apply immediate onBuild effects (오염은 지구 공동 수치로 분리)
+        let instantGpol = 0;
         for (const k in b.e) {
+          if (k === "pol" || k === "gpol") {
+            instantGpol += b.e[k];
+            continue;
+          }
           n[k] = (n[k] || 0) + b.e[k];
         }
         n.grid[idx] = bId; // ★ '' 슬롯에 건물 id 기록 (array 유지)
         // clamp
         n.hap = clamp(Math.round(n.hap), MIN_HAP, 100);
-        n.pol = Math.max(0, Math.round(n.pol));
         n.pop = Math.max(1000, Math.round(n.pop));
         n.eco = Math.max(0, Math.round(n.eco));
         n.mil = Math.max(0, Math.round(n.mil));
@@ -3534,9 +3837,9 @@
           eco: n.eco,
           mil: n.mil,
           cul: n.cul,
-          pol: n.pol,
           grid: n.grid,
         });
+        if (instantGpol) await applyGlobalPol(instantGpol);
         closeModal("buildModal");
         toast(
           (reclaiming ? "🚩 영토 탈환! " : "🏗️ ") +
@@ -3549,16 +3852,50 @@
       }
       window.doBuild = doBuild;
 
+      const SELL_REFUND_RATE = 0.3; // 건물 판매 시 건설비의 30%만 환급 (헐값)
       async function doDemolish(targetKey, idx) {
-        if (ME.role !== "master") {
-          toast("마스터만 철거할 수 있습니다.", "bad");
+        const isMaster = ME.role === "master";
+        const isOwner = ME.role === "student" && ME.nation === targetKey;
+        if (!isMaster && !isOwner) {
+          toast("내 나라의 건물만 철거할 수 있습니다.", "bad");
           return;
         }
-        const grid = clone(state.nations[targetKey].grid);
-        grid[idx] = ""; // ★ null 금지 — 빈 문자열로 비움
-        await Data.update("nations/" + targetKey, { grid });
+        if (!state.nations || !state.nations[targetKey]) return;
+        const n = clone(state.nations[targetKey]);
+        const bId = n.grid[idx];
+        const b = BMAP[bId];
+        if (!b) {
+          toast("철거할 건물이 없습니다.", "bad");
+          return;
+        }
+
+        if (isMaster) {
+          // 마스터 강제 폭파 — 환불 없음
+          if (!confirm("💣 이 건물을 강제 폭파할까요? (자원 환불 없음)")) return;
+          n.grid[idx] = "";
+          await Data.update("nations/" + targetKey, { grid: n.grid });
+          closeModal("buildModal");
+          toast("💣 건물을 강제 폭파했습니다.", "good");
+          return;
+        }
+
+        // 학생(소유자) 판매 — 건설비의 30%만 환급
+        const refund = Math.round(effCost(targetKey, b) * SELL_REFUND_RATE);
+        const ok1 = confirm(
+          "🏚️ [건물 판매]\n" +
+            b.icon +
+            " " +
+            b.name +
+            " 을(를) 철거하고 팔겠습니까?\n\n환급금: " +
+            fmt(refund) +
+            "골드 (건설비의 30%만 돌려받아요)\n※ 건물이 주던 효과도 사라집니다.",
+        );
+        if (!ok1) return;
+        n.grid[idx] = "";
+        n.eco = (n.eco || 0) + refund;
+        await Data.update("nations/" + targetKey, { grid: n.grid, eco: n.eco });
         closeModal("buildModal");
-        toast("💣 건물을 강제 폭파했습니다.", "good");
+        toast("🏚️ 건물을 팔아 " + fmt(refund) + "골드를 받았습니다.", "good");
       }
       window.doDemolish = doDemolish;
 
@@ -3649,14 +3986,27 @@
         const alreadyHit =
           !isMaster && meN.attacks && meN.attacks[warTarget] === curTurn;
 
+        // ★ 방어시설 개수 — 적이 방어막을 몇 겹 두르고 있는지
+        let defCount = 0;
+        for (let i = CAPITAL_TILES; i < 16; i++) {
+          const gv = tN.grid && tN.grid[i];
+          if (gv && !isConquered(gv) && BMAP[gv] && BMAP[gv].defense) defCount++;
+        }
+
         html +=
           '<div class="glass" style="padding:1rem;"><h3 style="margin:0 0 .6rem;">🎯 ' +
           escapeHTML(NATIONS[warTarget].name) +
           " 영토 (" +
           occupied.length +
           "개 건물)</h3>";
+        if (defCount > 0) {
+          html +=
+            '<div style="background:rgba(148,163,184,.18);border:1px solid var(--c-steel);border-radius:10px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.85rem;color:var(--ink);">🛡️ 이 나라는 <b>방어시설 ' +
+            defCount +
+            "겹</b>으로 보호받고 있어요! 공격해도 방어시설이 먼저 막아냅니다. 점령하려면 방어시설부터 부숴야 해요.</div>";
+        }
         html +=
-          '<div style="font-size:.78rem;color:var(--ink-dim);margin-bottom:.8rem;">· 무력 폭격: 군사력 150 소모 (강철 -20%) · 문화 침투: 문화력 200 소모 (지혜 -20%)<br>· 적 건물 +150 / 방어시설(🛡️) +300 비용 급증 · 전리품: 소모 비용의 40% 약탈<br>· 🚩 침략 성공 시 <b>건물 파괴 + 영토 점령</b> · ⛔ 한 나라는 <b>1턴에 1회만</b> 침략 가능!<br>· 🏛️ 적의 <b>수도(1~4번 칸)는 점령 불가</b> — 확장 영토(5~16번)만 공격할 수 있어요.</div>';
+          '<div style="font-size:.78rem;color:var(--ink-dim);margin-bottom:.8rem;">· 무력 폭격: 군사력 150 소모 (강철 -20%) · 문화 침투: 문화력 200 소모 (지혜 -20%)<br>· 적 건물 +150 / 방어시설(🛡️) +300 비용 급증 · 전리품: 소모 비용의 40% 약탈<br>· 🛡️ 적 영토에 <b>방어시설(요새·방공망)</b>이 있으면 공격이 <b>막혀요!</b> 방어시설이 먼저 부서지고 영토는 안전. 다 부순 뒤 점령 가능.<br>· 🚩 점령 시 <b>건물 파괴 + 영토 점령</b> · ⛔ 한 나라는 <b>1턴에 1회만</b> 침략 가능!<br>· 🏛️ 적의 <b>수도(1~4번 칸)는 점령 불가</b> — 확장 영토(5~16번)만 공격할 수 있어요.</div>';
 
         if (alreadyHit) {
           html +=
@@ -3765,6 +4115,72 @@
 
         // pay cost, gain loot (40% as plundered gold)
         if (!isMaster) aN[res] -= cost;
+
+        // ★ 방어 시스템 — 방어시설(🛡️ 요새·방패)이 있으면 공격을 막아낸다!
+        //   공격은 방어시설 1개를 먼저 파괴하고, 목표 영토는 지켜진다.
+        //   (방어시설을 다 부순 뒤에야 일반 건물을 점령할 수 있음)
+        const defenseTiles = [];
+        for (let i = CAPITAL_TILES; i < 16; i++) {
+          const gv = tN.grid[i];
+          if (gv && !isConquered(gv) && BMAP[gv] && BMAP[gv].defense) {
+            defenseTiles.push(i);
+          }
+        }
+        // 공격 대상이 방어시설 자신이 아니고, 방어시설이 남아있다면 → 방어막이 먼저 막는다
+        const targetIsDefense = b.defense;
+        if (!targetIsDefense && defenseTiles.length > 0) {
+          // 가장 가까운(작은 인덱스) 방어시설이 자기를 희생해 막아낸다
+          const shieldIdx = defenseTiles[0];
+          const shieldB = BMAP[tN.grid[shieldIdx]];
+          tN.grid[shieldIdx] = ""; // 방어시설 파괴(소멸)
+          tN.hap = clamp(Math.round((tN.hap || 0) - 1), MIN_HAP, 100);
+
+          // 침략 기록 (막혔어도 이번 턴 공격권은 소모)
+          if (!isMaster) {
+            aN.attacks = Object.assign({}, aN.attacks || {}, {
+              [targetKey]: curTurn,
+            });
+          }
+          aN[res] = Math.max(0, Math.round(aN[res]));
+          const loot0 = Math.round(cost * 0.4);
+          aN.eco = Math.max(0, Math.round((aN.eco || 0) + loot0));
+          await Data.update("nations/" + meKey, {
+            mil: Math.round(aN.mil),
+            cul: Math.round(aN.cul),
+            eco: aN.eco,
+            attacks: aN.attacks || {},
+          });
+          await Data.update("nations/" + targetKey, {
+            grid: tN.grid,
+            hap: tN.hap,
+          });
+          await Data.push("chat", {
+            user: isMaster ? "MCU" : ME.user,
+            nation: meKey,
+            text:
+              "🛡️ " +
+              NATIONS[targetKey].name +
+              "의 " +
+              shieldB.name +
+              "(방어시설)이 " +
+              NATIONS[meKey].name +
+              "의 공격을 막아냈습니다! 영토는 지켜졌습니다.",
+            ts: Date.now(),
+          });
+          closeModal("buildModal");
+          renderWar();
+          toast(
+            "🛡️ 공격이 막혔습니다! " +
+              NATIONS[targetKey].name +
+              "의 방어시설(" +
+              shieldB.name +
+              ")이 파괴되며 영토를 지켜냈어요.",
+            "warn",
+          );
+          return;
+        }
+
+        // pay loot (40% as plundered gold) — 방어막이 없을 때 실제 점령
         const loot = Math.round(cost * 0.4);
         aN.eco = (aN.eco || 0) + loot;
 
@@ -3823,52 +4239,36 @@
 ---------------------------------------------------------------------------- */
       function renderUN() {
         const host = $("#unActions");
+        if (!host) return;
         if (!state.nations) {
           host.innerHTML =
-            '<div class="glass" style="padding:1rem;color:var(--ink-dim)">세계가 아직 없습니다.</div>';
+            '<div style="padding:.8rem;color:var(--ink-dim);font-size:.85rem;">세계가 아직 없습니다.</div>';
+          return;
+        }
+        if (ME.role === "master") {
+          host.innerHTML =
+            '<div style="padding:.7rem;color:var(--ink-dim);font-size:.82rem;">👑 마스터는 채팅을 관전합니다. 원조·환경 기부는 학생이 진행해요.</div>';
           return;
         }
         const meKey = myNationKey();
         const meN = myNation();
         const others = NATION_ORDER.filter((k) => k !== meKey);
-        const eCost = envCost(meKey);
         const paybackPct = Math.round(
           ((NATIONS[meKey] && NATIONS[meKey].aidPayback) || 0.7) * 100,
         );
 
         host.innerHTML =
-          '<div class="glass" style="padding:1rem;display:grid;grid-template-columns:1fr 1fr;gap:1rem;">' +
-          "<div>" +
-          '<h3 style="margin:0 0 .4rem;font-size:1rem;">🌱 환경 기부</h3>' +
-          '<div style="font-size:.78rem;color:var(--ink-dim);margin-bottom:.5rem;">' +
-          fmt(eCost) +
-          "골드를 기부해 우리 오염도를 10 낮춥니다." +
-          (NATIONS[meKey].envDiscount
-            ? ' <span style="color:var(--c-wisdom,#3b82f6);">(외교 허브 20% 할인 적용)</span>'
-            : "") +
-          "</div>" +
-          '<div class="chip" style="margin-bottom:.5rem;">💰 <b class="num">' +
-          fmt(meN.eco) +
-          '</b> · ☢️ <b class="num">' +
-          Math.round(meN.pol) +
-          "</b></div>" +
-          '<button class="btn btn-good" ' +
-          (meN.eco >= eCost ? "" : "disabled") +
-          ' onclick="donateEnv()" style="width:100%;">💧 ' +
-          fmt(eCost) +
-          "골드 환경 기부</button>" +
-          "</div>" +
-          "<div>" +
-          '<h3 style="margin:0 0 .4rem;font-size:1rem;">🎁 구호물자 원조</h3>' +
-          '<div style="font-size:.78rem;color:var(--ink-dim);margin-bottom:.5rem;">다른 나라에 자본을 보내면 원조량의 ' +
+          '<div style="padding:.7rem 0 .5rem;">' +
+          '<h4 style="margin:0 0 .35rem;font-size:.9rem;">🎁 구호물자 원조</h4>' +
+          '<div style="font-size:.74rem;color:var(--ink-dim);margin-bottom:.45rem;line-height:1.5;">다른 나라에 자본을 보내면 원조량의 ' +
           paybackPct +
-          "%만큼 문화력을 얻습니다." +
+          "%만큼 문화력을 얻어요." +
           (paybackPct > 70
             ? ' <span style="color:var(--c-steel,#94a3b8);">(평화유지군 보너스!)</span>'
             : "") +
-          '<br><span style="color:var(--warn);">⚠️ 물자 수송 수수료 20% — 받는 나라는 보낸 금액의 80%만 받습니다.</span>' +
-          "</div>" +
-          '<select id="aidTarget" style="margin-bottom:.4rem;">' +
+          '<br><span style="color:var(--warn);">⚠️ 수송 수수료 20% — 받는 나라는 80%만 받아요.</span></div>' +
+          '<div style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;">' +
+          '<select id="aidTarget" style="flex:1;min-width:110px;">' +
           others
             .map(
               (k) =>
@@ -3876,10 +4276,9 @@
             )
             .join("") +
           "</select>" +
-          '<input id="aidAmount" type="number" min="10" step="10" placeholder="원조량 (골드)" style="margin-bottom:.4rem;"/>' +
-          '<button class="btn btn-accent" onclick="sendAid()" style="width:100%;">📦 원조 보내기</button>' +
-          "</div>" +
-          "</div>";
+          '<input id="aidAmount" type="number" min="10" step="10" placeholder="골드" style="width:90px;"/>' +
+          '<button class="btn btn-accent" onclick="sendAid()" style="padding:.4rem .7rem;">📦 원조</button>' +
+          "</div></div>";
       }
 
       /* 환경 기부 비용: 기본 250골드, 지혜 제국은 envDiscount(20%) 할인 */
@@ -3902,12 +4301,12 @@
           return;
         }
         n.eco -= cost;
-        n.pol = Math.max(0, n.pol - 10);
-        await Data.update("nations/" + key, {
-          eco: Math.round(n.eco),
-          pol: Math.round(n.pol),
-        });
-        toast("🌱 환경 기부 완료! (-" + fmt(cost) + "G) 오염도 -10", "good");
+        await Data.update("nations/" + key, { eco: Math.round(n.eco) });
+        await applyGlobalPol(-12); // ★ 지구 공동 오염도를 함께 낮춤
+        toast(
+          "🌱 환경 기부 완료! (-" + fmt(cost) + "G) 지구 오염도 -12 🌍",
+          "good",
+        );
       }
       window.donateEnv = donateEnv;
 
@@ -3975,13 +4374,23 @@
       }
       window.sendAid = sendAid;
 
+      let _lastChatCount = 0;
       function renderChat() {
         const box = $("#chatBox");
-        if (!box) return;
         const msgs = Object.keys(state.chat || {})
           .map((k) => state.chat[k])
           .filter(Boolean)
           .sort((a, b) => (a.ts || 0) - (b.ts || 0));
+        // 채팅 패널이 닫혀 있는데 새 메시지가 오면 FAB에 빨간 점 표시
+        const panel = $("#chatPanel");
+        const dot = $("#chatFabDot");
+        if (dot && panel) {
+          if (msgs.length > _lastChatCount && !panel.classList.contains("open")) {
+            dot.style.display = "block";
+          }
+        }
+        _lastChatCount = msgs.length;
+        if (!box) return;
         box.innerHTML = msgs
           .map((m) => {
             const col =
@@ -4062,6 +4471,11 @@
           closeMissionModal(); // 떠 있던 강제 팝업 정리
         }
 
+        /* ★ 지구 오염도 누적 — 모든 나라의 모든 건물 오염을 합산해 '지구 전체'에 더한다.
+           단, 너무 빨리 오르지 않도록 0.35 계수를 적용(천천히 차오르게). */
+        const POL_RISE_FACTOR = 1.0;
+        let worldPolDelta = 0;
+
         const report = [];
         for (const key of NATION_ORDER) {
           const n = clone(state.nations[key]);
@@ -4072,9 +4486,8 @@
           const growth = 0.05 * (trait.popGrowthBonus || 1.0);
           n.pop = n.pop + n.pop * growth;
 
-          /* 2) 건설된 건물들의 턴당 지속 효과(perTurn) + 오염 증감(pol) */
+          /* 2) 건설된 건물들의 턴당 지속 효과(perTurn) + 오염 증감(pol→지구 오염에 합산) */
           const counts = buildingCounts(n.grid);
-          let polDelta = 0;
           for (const bid in counts) {
             const B = BMAP[bid];
             if (!B) continue;
@@ -4085,27 +4498,26 @@
               }
             }
             if (typeof B.pol === "number") {
-              polDelta += B.pol * num;
+              worldPolDelta += B.pol * num; // ★ 지구 오염에 합산 (자국 오염 아님)
             }
           }
-          n.pol = Math.max(0, (n.pol || 0) + polDelta);
 
           /* ★ 유지비(누진세) — 건물 '개수'에 따라 급증 (4개부터 발생) */
           const upkeep = nationUpkeep(n.grid);
 
           /* 3) 세금 징수 : 인구 × 지지율에 비례 */
           let tax = Math.round((n.pop / 1000) * (n.hap / 100) * 60);
-          /* 4) 오염도 100 초과 → 대재앙! 세금 반토막 */
+          /* 4) 지구 오염도 100 초과 → 전 세계 대재앙! 모든 나라 세금 반토막 */
+          const worldPol = getGlobalPol();
           let disaster = false;
-          if (n.pol > 100) {
+          if (worldPol > 100) {
             tax = Math.round(tax * 0.5);
             disaster = true;
           }
           /* ★ 세금 수입 - 건물 유지비(누진세) + 국가 특성 보너스 = 순수입 */
           const tradeBonus = trait.tradeBonus || 0; // 자본 제국 +150 (무역 보조금)
           const rawEco = (n.eco || 0) + tax - upkeep + tradeBonus;
-          /* ★ 파산 페널티 : 유지비를 못 내 적자가 나면 '국가 부도' → 지지율 -15% 폭락
-             (돈은 0 밑으로 안 깎이지만, 무지성 확장에 대한 대가를 지지율로 치른다) */
+          /* ★ 파산 페널티 : 유지비를 못 내 적자가 나면 '국가 부도' → 지지율 -15% 폭락 */
           let bankrupt = false;
           if (rawEco < 0) {
             bankrupt = true;
@@ -4113,8 +4525,8 @@
           }
           n.eco = rawEco; // 아래에서 0 하한 클램프
 
-          /* 5) 오염도 80 이상 → 매 턴 지지율 -5 */
-          if (n.pol >= 80) {
+          /* 5) 지구 오염도 80 이상 → 매 턴 전 나라 지지율 -5 */
+          if (worldPol >= 80) {
             n.hap = (n.hap || 0) - 5;
           }
 
@@ -4124,16 +4536,14 @@
           n.eco = Math.max(0, Math.round(n.eco));
           n.mil = Math.max(0, Math.round(n.mil));
           n.cul = Math.max(0, Math.round(n.cul));
-          n.pol = Math.max(0, Math.round(n.pol));
 
-          /* 7) 새 아젠다를 받을 수 있도록 직전 투표 기록 초기화 */
+          /* 7) 새 아젠다를 받을 수 있도록 직전 투표 기록 초기화 (pol은 더 이상 자국 스탯 아님) */
           await Data.update("nations/" + key, {
             pop: n.pop,
             hap: n.hap,
             eco: n.eco,
             mil: n.mil,
             cul: n.cul,
-            pol: n.pol,
             lastVote: "",
           });
 
@@ -4151,6 +4561,16 @@
               fmt(tax - upkeep + tradeBonus) +
               "💰)",
           );
+        }
+
+        /* ★ 지구 오염도 갱신 — 합산된 건물 오염에 계수를 곱해 천천히 누적 */
+        if (worldPolDelta !== 0) {
+          const before = getGlobalPol();
+          const after = Math.max(
+            0,
+            Math.round(before + worldPolDelta * POL_RISE_FACTOR),
+          );
+          await Data.update("meta", { globalPol: after });
         }
 
         /* 8) 턴 증가 & Phase 재계산 후 persist */
@@ -4182,7 +4602,7 @@
       /* ----- 신의 손 : 임의 국가의 스탯을 통째로 덮어쓰기 ----- */
       async function godHand() {
         const key = $("#mcuNation").value;
-        const fields = ["pop", "hap", "eco", "mil", "cul", "pol"];
+        const fields = ["pop", "hap", "eco", "mil", "cul"];
         const payload = {};
         fields.forEach((f) => {
           const el = $("#god_" + f);
@@ -4190,18 +4610,34 @@
             payload[f] = Math.round(Number(el.value));
           }
         });
-        if (Object.keys(payload).length === 0) {
+        // ★ 오염은 지구 공동 수치(meta.globalPol)로 설정
+        const polEl = $("#god_pol");
+        let setPol = false;
+        if (polEl && polEl.value !== "") {
+          const gp = Math.max(0, Math.round(Number(polEl.value)));
+          await Data.update("meta", { globalPol: gp });
+          setPol = true;
+        }
+        if (Object.keys(payload).length === 0 && !setPol) {
           toast("덮어쓸 값을 입력하세요.", "bad");
           return;
         }
         /* 클램프 */
         if (payload.hap != null) payload.hap = clamp(payload.hap, 0, 100);
         if (payload.pop != null) payload.pop = Math.max(1000, payload.pop);
-        ["eco", "mil", "cul", "pol"].forEach((f) => {
+        ["eco", "mil", "cul"].forEach((f) => {
           if (payload[f] != null) payload[f] = Math.max(0, payload[f]);
         });
-        await Data.update("nations/" + key, payload);
-        toast("🖐️ 신의 손 발동! " + NATIONS[key].name + " 스탯을 덮어썼습니다.", "good");
+        if (Object.keys(payload).length > 0) {
+          await Data.update("nations/" + key, payload);
+        }
+        toast(
+          "🖐️ 신의 손 발동! " +
+            (setPol ? "지구 오염도 및 " : "") +
+            NATIONS[key].name +
+            " 스탯을 덮어썼습니다.",
+          "good",
+        );
       }
       window.godHand = godHand;
 
@@ -4487,7 +4923,7 @@
           field("god_eco", "자본", cur ? cur.eco : "") +
           field("god_mil", "군사", cur ? cur.mil : "") +
           field("god_cul", "문화", cur ? cur.cul : "") +
-          field("god_pol", "오염", cur ? cur.pol : "") +
+          field("god_pol", "🌍지구오염", getGlobalPol()) +
           "</div>" +
           '<button class="btn btn-lg" style="margin-top:.7rem;width:100%;border-color:var(--accent);" onclick="godHand()">🖐️ 신의 손 발동</button>' +
           "</div>" +
@@ -4547,82 +4983,88 @@
       /* ============================================================================
    [J2] 현장 미션 (랜덤 카드 · 시스템 미션 · 사진 인증 · 마스터 결재)
    ========================================================================== */
-      /* 카드 풀 — type:'photo'(사진 인증) | type:'system'(게임 조건 자동 검증) */
+      /* 카드 풀 — 전부 '사진 인증' 미션. 시민성(협력·책임·민주주의·인권·환경·공동체)의
+         의미를 진지하게 실천하고, 그 과정을 사진으로 남겨 인증한다. */
       const FIELD_CARDS = [
         {
-          id: "f_photo_flag",
-          type: "photo",
-          icon: "🚩",
-          title: "국기 디자인 인증",
-          desc: "모둠이 힘을 합쳐 우리 제국의 국기를 종이에 그리고, 다 함께 든 사진을 찍어 인증하세요!",
-        },
-        {
-          id: "f_photo_team",
-          type: "photo",
-          icon: "🤝",
-          title: "단합 대회",
-          desc: "모둠원 전원이 손을 모아 우리 제국의 구호를 외치는 단합 사진을 찍어 인증하세요!",
-        },
-        {
-          id: "f_photo_tiles",
-          type: "photo",
-          icon: "🧱",
-          title: "보드게임 작전 회의",
-          desc: "보드게임판(주자료2)에 건물 타일을 3개 이상 올리고, 작전 회의 중인 책상을 찍어 인증하세요!",
-        },
-        {
-          id: "f_photo_const",
+          id: "f_rule_charter",
           type: "photo",
           icon: "📜",
-          title: "헌법 선포식",
-          desc: "우리 제국의 헌법 한 문장을 종이에 적고, 모둠장이 낭독하는 장면을 찍어 인증하세요!",
+          title: "우리 모둠의 약속(헌장) 만들기",
+          desc: "민주주의는 '함께 정한 규칙'에서 시작해요. 모둠이 토론해서 <b>우리 모둠이 꼭 지킬 약속 3가지</b>를 종이에 적고, 모두가 동의의 의미로 손을 얹은 장면을 찍어 인증하세요.",
+          tip: "예: '서로 끝까지 듣기', '결정은 다수결로', '한 명도 빼놓지 않기'",
         },
         {
-          id: "f_photo_debate",
+          id: "f_vote_decision",
           type: "photo",
-          icon: "🗣️",
-          title: "외교 협상 현장",
-          desc: "다른 모둠과 종이 외교 문서를 들고 협상하는 장면을 찍어 인증하세요!",
+          icon: "🗳️",
+          title: "공정한 투표로 결정하기",
+          desc: "이번 턴에 <b>우리 나라가 먼저 지을 건물</b>을 두고 모둠원이 손을 들어 <b>투표</b>로 정하세요. 칠판이나 종이에 표를 그려 개표한 결과를 찍어 인증하세요.",
+          tip: "소수 의견도 기록해 보세요. 민주주의는 다수결이지만 소수도 존중해요.",
         },
         {
-          id: "f_sys_market2",
-          type: "system",
-          icon: "🛒",
-          title: "상업 도시 건설",
-          desc: "우리 영토에 시장(market)을 2개 이상 건설하세요.",
-          check: (n) => (buildingCounts(n.grid).market || 0) >= 2,
+          id: "f_role_share",
+          type: "photo",
+          icon: "🧩",
+          title: "역할 나누기(책임 분담)",
+          desc: "공동체가 잘 돌아가려면 <b>각자 맡은 일</b>이 있어야 해요. 모둠원이 자기 역할(외교관·건축가·환경부 장관·기록관 등)을 적은 이름표를 들고 찍어 인증하세요.",
+          tip: "역할은 돌아가며 맡으면 더 공정해요.",
         },
         {
-          id: "f_sys_clean",
-          type: "system",
-          icon: "🌱",
-          title: "청정 국가",
-          desc: "오염도를 50 이하로 유지하세요.",
-          check: (n) => (n.pol || 0) <= 50,
+          id: "f_env_action",
+          type: "photo",
+          icon: "🌍",
+          title: "지구를 지키는 작은 실천",
+          desc: "오염은 모두의 문제예요. 교실에서 할 수 있는 <b>환경 실천</b>(분리수거 하기, 쓰지 않는 전등 끄기, 이면지 모으기 등)을 직접 하고 그 장면을 찍어 인증하세요.",
+          tip: "우리의 실천이 곧 지구 오염도를 낮추는 마음이에요.",
         },
         {
-          id: "f_sys_cul500",
-          type: "system",
-          icon: "🎭",
-          title: "문화 강국",
-          desc: "문화력을 500 이상 달성하세요.",
-          check: (n) => (n.cul || 0) >= 500,
+          id: "f_help_others",
+          type: "photo",
+          icon: "🤝",
+          title: "도움을 주고받기(연대)",
+          desc: "어려움을 겪는 친구나 다른 모둠을 <b>도와주는 장면</b>을 찍어 인증하세요. 준비물을 빌려주거나, 모르는 문제를 함께 풀어주는 모습도 좋아요.",
+          tip: "협력은 전쟁보다 강해요. 도움은 우리 모두를 키워요.",
         },
         {
-          id: "f_sys_pop15k",
-          type: "system",
-          icon: "👥",
-          title: "인구 대국",
-          desc: "인구를 15,000명 이상 달성하세요.",
-          check: (n) => (n.pop || 0) >= 15000,
+          id: "f_listen_minority",
+          type: "photo",
+          icon: "👂",
+          title: "끝까지 경청하기",
+          desc: "모둠에서 평소 말이 적은 친구의 의견을 <b>먼저 묻고 끝까지 들어주는</b> 회의를 열어보세요. 그 친구의 의견을 종이에 받아 적고, 함께 든 장면을 찍어 인증하세요.",
+          tip: "경청은 시민이 갖춰야 할 가장 중요한 태도예요.",
         },
         {
-          id: "f_sys_build5",
-          type: "system",
-          icon: "🏗️",
-          title: "개발 강국",
-          desc: "건물을 5개 이상 건설하세요.",
-          check: (n) => (n.grid || []).filter((id) => id && BMAP[id]).length >= 5,
+          id: "f_diplomacy",
+          type: "photo",
+          icon: "🕊️",
+          title: "평화로운 외교 협상",
+          desc: "다른 모둠(나라)을 직접 찾아가 <b>평화 협정문</b>을 한 문장 적고, 양쪽 대표가 악수하는 장면을 찍어 인증하세요.",
+          tip: "예: '우리 두 나라는 이번 턴에 서로 공격하지 않는다.'",
+        },
+        {
+          id: "f_thanks_card",
+          type: "photo",
+          icon: "💌",
+          title: "고마움 전하기",
+          desc: "함께한 모둠원이나 도와준 친구에게 <b>고마움의 쪽지</b>를 써서 전하는 장면을 찍어 인증하세요. 공동체는 감사에서 단단해져요.",
+          tip: "구체적으로 무엇이 고마웠는지 적으면 더 좋아요.",
+        },
+        {
+          id: "f_fair_share",
+          type: "photo",
+          icon: "⚖️",
+          title: "공정하게 나누기",
+          desc: "준비물이나 역할을 <b>공정하게 나누는 규칙</b>을 모둠이 정하고, 그 규칙을 적은 종이를 들고 찍어 인증하세요. 자원은 한쪽으로 쏠리면 안 돼요.",
+          tip: "'어떻게 나누는 게 모두에게 공정할까?'를 토론해 보세요.",
+        },
+        {
+          id: "f_pledge",
+          type: "photo",
+          icon: "🙋",
+          title: "시민 선서하기",
+          desc: "모둠원 전원이 손을 들고 <b>좋은 시민이 되겠다는 선서</b>를 외치는 장면을 찍어 인증하세요. 선서문은 모둠이 직접 만들어요.",
+          tip: "예: '우리는 서로를 존중하고, 약속을 지키며, 지구를 아끼는 시민이 되겠습니다.'",
         },
       ];
       const FCMAP = {};
@@ -4660,26 +5102,37 @@
         reader.readAsDataURL(file);
       }
 
-      /* 카드 뽑기 (랜덤) */
+      /* 카드 뽑기 (랜덤) — 한 턴에 1번만! */
       async function drawCard() {
         const key = myNationKey();
         if (ME.role === "master") {
           toast("마스터는 카드를 뽑지 않습니다. 결재만 합니다.", "warn");
           return;
         }
+        const curTurn = state.meta.turn || 1;
         const cur = state.field && state.field[key];
+        // 진행 중(뽑음/대기)인 카드가 있으면 새로 못 뽑음
         if (cur && cur.status !== "approved" && cur.status !== "rejected") {
-          toast("이미 진행 중인 카드가 있어요. 먼저 인증을 끝내세요!", "warn");
+          toast("이미 진행 중인 미션이 있어요. 먼저 사진 인증을 끝내세요!", "warn");
+          return;
+        }
+        // ★ 이번 턴에 이미 미션을 뽑았으면(완료/반려 포함) 다음 턴까지 못 뽑음
+        if (cur && cur.turn === curTurn) {
+          toast(
+            "이번 턴 미션은 이미 뽑았어요. 현장 미션은 <b>한 턴에 한 번</b>만 할 수 있어요. 다음 턴에 다시 도전하세요!",
+            "warn",
+          );
           return;
         }
         const card = FIELD_CARDS[Math.floor(Math.random() * FIELD_CARDS.length)];
         await Data.set("field/" + key, {
           cardId: card.id,
           status: "drawn",
+          turn: curTurn,
           ts: Date.now(),
         });
         activeCardId = card.id;
-        toast("🎴 '" + card.title + "' 카드를 뽑았습니다!", "good");
+        toast("🎴 '" + card.title + "' 미션을 뽑았습니다!", "good");
       }
       window.drawCard = drawCard;
 
@@ -4689,7 +5142,7 @@
       }
       window.toggleCard = toggleCard;
 
-      /* 인증하기 — 시스템 미션은 즉시 검증, 사진 미션은 카메라 활성화 */
+      /* 인증하기 — 모든 미션이 사진 인증. 카메라를 열어 사진을 찍고 마스터 결재로 보낸다. */
       async function verifyCard() {
         const key = myNationKey();
         const rec = state.field && state.field[key];
@@ -4699,55 +5152,38 @@
         }
         const card = FCMAP[rec.cardId];
         if (!card) return;
-        if (card.type === "system") {
-          const n = state.nations[key];
-          if (card.check(n)) {
-            await Data.set("field/" + key, {
+        const inp = $("#fieldCamInput");
+        inp.value = "";
+        inp.onchange = () => {
+          const f = inp.files && inp.files[0];
+          if (!f) return;
+          toast("사진 압축 중…", "good");
+          compressImage(f, async (dataUrl) => {
+            if (!dataUrl) {
+              toast("사진 처리에 실패했어요. 다시 시도하세요.", "bad");
+              return;
+            }
+            const sid = "s_" + key + "_" + Date.now();
+            await Data.set("submissions/" + sid, {
+              id: sid,
+              nation: key,
               cardId: card.id,
-              status: "approved",
+              cardTitle: card.title,
+              photo: dataUrl,
+              status: "pending",
               ts: Date.now(),
             });
-            await applyDelta(key, { cul: FIELD_REWARD_CUL }, {});
-            toast(
-              "✅ 인증되었습니다! 조건 달성 🎉 (문화력 +" + FIELD_REWARD_CUL + ")",
-              "good",
-            );
-          } else {
-            toast("아직 조건을 달성하지 못했어요. 더 노력해 보세요!", "bad");
-          }
-        } else {
-          const inp = $("#fieldCamInput");
-          inp.value = "";
-          inp.onchange = () => {
-            const f = inp.files && inp.files[0];
-            if (!f) return;
-            toast("사진 압축 중…", "good");
-            compressImage(f, async (dataUrl) => {
-              if (!dataUrl) {
-                toast("사진 처리에 실패했어요. 다시 시도하세요.", "bad");
-                return;
-              }
-              const sid = "s_" + key + "_" + Date.now();
-              await Data.set("submissions/" + sid, {
-                id: sid,
-                nation: key,
-                cardId: card.id,
-                cardTitle: card.title,
-                photo: dataUrl,
-                status: "pending",
-                ts: Date.now(),
-              });
-              await Data.set("field/" + key, {
-                cardId: card.id,
-                status: "pending",
-                submissionId: sid,
-                ts: Date.now(),
-              });
-              toast("📨 인증 사진을 마스터에게 전송했습니다! 결재를 기다리세요.", "good");
+            await Data.set("field/" + key, {
+              cardId: card.id,
+              status: "pending",
+              submissionId: sid,
+              turn: rec.turn || state.meta.turn || 1,
+              ts: Date.now(),
             });
-          };
-          inp.click();
-        }
+            toast("📨 인증 사진을 마스터에게 전송했습니다! 결재를 기다리세요.", "good");
+          });
+        };
+        inp.click();
       }
       window.verifyCard = verifyCard;
 
@@ -4811,26 +5247,34 @@
         const rec = state.field && state.field[key];
         const card = rec ? FCMAP[rec.cardId] : null;
         const status = rec ? rec.status : null;
+        const curTurn = state.meta.turn || 1;
         // ★ 어뷰징 방지 : 진행 중(뽑음/대기)인 카드는 강제로 펼쳐서 계속 보이게 락
         const inProgress = status === "drawn" || status === "pending";
         if (card && inProgress) activeCardId = card.id;
+        // ★ 이번 턴에 이미 미션을 뽑았는지 (완료/반려 포함)
+        const drewThisTurn = rec && rec.turn === curTurn;
+        const lockDraw = ME.role === "master" || inProgress || drewThisTurn;
 
         let html =
           '<div class="glass-strong" style="padding:1rem;margin-bottom:1rem;">' +
-          '<h2 style="margin:0 0 .3rem;font-size:1.4rem;">🎯 현장 미션</h2>' +
-          '<div style="font-size:.84rem;color:var(--ink-dim);line-height:1.6;">카드를 뽑으면 아래에 미션 카드가 나타나요. 카드를 눌러 펼친 뒤 <b>인증하기</b>를 누르세요.<br>· <b>시스템 미션</b>: 게임 속 조건을 자동으로 검사해요.<br>· <b>사진 미션</b>: 카메라가 켜지고, 찍은 사진이 마스터에게 전송돼 결재를 받아요.<br>· ⚠️ 한 번 뽑은 카드는 <b>바꿀 수 없어요</b>(새로고침해도 그대로!). 인증을 끝내야 다음 카드를 뽑을 수 있어요.</div>' +
+          '<h2 style="margin:0 0 .3rem;font-size:1.4rem;">🎯 현장 미션 (시민성 실천)</h2>' +
+          '<div style="font-size:.84rem;color:var(--ink-dim);line-height:1.6;">현장 미션은 <b>좋은 시민이 되는 연습</b>이에요. 미션을 뽑아 실제로 실천하고, 그 장면을 <b>사진으로 찍어 인증</b>하면 마스터가 확인 후 <b>문화력 +' +
+          FIELD_REWARD_CUL +
+          "</b>을 줍니다.<br>· 📸 모든 미션은 <b>사진 인증</b>이에요. 진심을 담아 실천하는 게 중요해요!<br>· ⏰ 현장 미션은 <b>한 턴에 한 번</b>만 할 수 있어요.<br>· ⚠️ 한 번 뽑은 미션은 <b>바꿀 수 없어요</b>(새로고침해도 그대로!).</div>" +
           "</div>";
 
         html +=
           '<div class="glass" style="padding:1rem;margin-bottom:1rem;text-align:center;">' +
           '<button class="btn btn-lg btn-accent" onclick="drawCard()" ' +
-          (ME.role === "master" || inProgress ? "disabled" : "") +
-          ">🎴 미션 카드 뽑기</button>" +
+          (lockDraw ? "disabled" : "") +
+          ">🎴 오늘의 미션 뽑기</button>" +
           (ME.role === "master"
             ? "<div style=\"font-size:.74rem;color:var(--ink-dim);margin-top:.4rem;\">마스터는 아래 '결재 대기함'에서 학생 인증을 승인/반려합니다.</div>"
             : inProgress
-              ? '<div style="font-size:.74rem;color:var(--warn);margin-top:.4rem;">🔒 진행 중인 미션을 먼저 끝내야 새 카드를 뽑을 수 있어요.</div>'
-              : "") +
+              ? '<div style="font-size:.74rem;color:var(--warn);margin-top:.4rem;">🔒 진행 중인 미션을 먼저 끝내세요.</div>'
+              : drewThisTurn
+                ? '<div style="font-size:.74rem;color:var(--warn);margin-top:.4rem;">⏰ 이번 턴 미션은 완료했어요! 다음 턴에 새 미션에 도전하세요.</div>'
+                : "") +
           "</div>";
 
         if (card) {
@@ -4851,9 +5295,7 @@
             escapeHTML(card.title) +
             '</div><div style="font-size:.74rem;color:' +
             stl[1] +
-            ';">' +
-            (card.type === "system" ? "시스템 미션" : "사진 인증 미션") +
-            " · " +
+            ';">📸 사진 인증 미션 · ' +
             stl[0] +
             "</div></div>" +
             '<div style="font-size:1.2rem;color:var(--ink-dim);">' +
@@ -4862,20 +5304,25 @@
             "</div>" +
             (open
               ? '<div style="padding:0 1rem 1rem;">' +
-                '<div style="background:rgba(0,0,0,.28);border-radius:8px;padding:.7rem .9rem;font-size:.9rem;line-height:1.6;margin-bottom:.7rem;">' +
-                escapeHTML(card.desc) +
+                '<div style="background:rgba(0,0,0,.28);border-radius:8px;padding:.7rem .9rem;font-size:.9rem;line-height:1.6;margin-bottom:.5rem;">' +
+                card.desc +
                 "</div>" +
+                (card.tip
+                  ? '<div style="background:rgba(122,162,255,.12);border-radius:8px;padding:.5rem .7rem;font-size:.8rem;line-height:1.5;margin-bottom:.7rem;color:var(--ink-dim);">💡 <b>도움말</b> ' +
+                    escapeHTML(card.tip) +
+                    "</div>"
+                  : "") +
                 (done
-                  ? '<div style="text-align:center;color:var(--good);font-weight:bold;">✅ 이미 인증을 완료한 미션입니다! 새 카드를 뽑으세요.</div>'
+                  ? '<div style="text-align:center;color:var(--good);font-weight:bold;">✅ 인증 완료! 멋진 시민이에요. 다음 턴에 새 미션에 도전하세요.</div>'
                   : status === "pending"
                     ? '<div style="text-align:center;color:var(--warn);font-weight:bold;">📨 마스터의 결재를 기다리는 중입니다…</div>'
-                    : '<button class="btn btn-lg btn-good" style="width:100%;" onclick="verifyCard()">📸 인증하기</button>') +
+                    : '<button class="btn btn-lg btn-good" style="width:100%;" onclick="verifyCard()">📸 사진 찍어 인증하기</button>') +
                 "</div>"
               : "");
           html += "</div>";
         } else {
           html +=
-            '<div class="glass" style="padding:1.4rem;text-align:center;color:var(--ink-faint);">아직 뽑은 카드가 없어요. 위 버튼으로 미션 카드를 뽑아보세요!</div>';
+            '<div class="glass" style="padding:1.4rem;text-align:center;color:var(--ink-faint);">아직 오늘의 미션이 없어요. 위 버튼으로 미션을 뽑아보세요!</div>';
         }
 
         if (ME.role === "master") {
