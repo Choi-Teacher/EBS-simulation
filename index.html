@@ -496,7 +496,7 @@
       .modal-back.show {
         display: flex;
       }
-      /* ===== 인프라 백과 사이드바 ===== */
+      /* ===== 인프라 백과 사이드바 (push 방식 — 콘텐츠를 밀어냄) ===== */
       .side-drawer {
         position: fixed;
         top: 0;
@@ -507,7 +507,7 @@
         background: var(--panel, #11162a);
         border-left: 1px solid var(--line);
         box-shadow: -10px 0 40px rgba(0, 0, 0, 0.5);
-        z-index: 90;
+        z-index: 60;
         transform: translateX(100%);
         transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1);
         display: flex;
@@ -515,6 +515,22 @@
       }
       .side-drawer.open {
         transform: translateX(0);
+      }
+      /* 사이드바가 열리면 앱 콘텐츠 영역을 사이드바 너비만큼 줄인다 */
+      #app {
+        transition: margin-right 0.28s cubic-bezier(0.4, 0, 0.2, 1);
+      }
+      #app.sidebar-open {
+        margin-right: 340px;
+      }
+      /* 좁은 화면(모바일)에선 push 대신 오버레이로 폴백 */
+      @media (max-width: 720px) {
+        #app.sidebar-open {
+          margin-right: 0;
+        }
+        .side-drawer {
+          z-index: 90;
+        }
       }
       .side-drawer-head {
         display: flex;
@@ -530,8 +546,14 @@
         z-index: 89;
         display: none;
       }
+      /* push 방식에선 백드롭을 좁은 화면에서만 사용 */
       .drawer-backdrop.show {
-        display: block;
+        display: none;
+      }
+      @media (max-width: 720px) {
+        .drawer-backdrop.show {
+          display: block;
+        }
       }
       /* ===== 세계 정상 회담 플로팅 채팅 ===== */
       #chatFab {
@@ -2235,13 +2257,19 @@
 
       let currentTab = "map"; // ★ 첫 진입 기본 탭 = 영토 관제망
 
-      /* ===== 오버레이 토글 (인프라 백과 사이드바 / 세계 정상 회담 채팅 / 가이드 모달) ===== */
+      /* ===== 오버레이/사이드바 토글 (인프라 백과 / 세계 정상 회담 채팅 / 가이드 모달) ===== */
       function toggleEncycloSidebar() {
         const d = $("#encycloSidebar");
         const b = $("#encycloBackdrop");
+        const app = $("#app");
+        const btn = $("#encycloSideBtn");
         if (!d) return;
-        const open = d.classList.toggle("open");
-        if (b) b.classList.toggle("show", open);
+        const open = d.classList.toggle("open"); // 사이드바 열림 상태 (탭 활성과 분리)
+        if (app) app.classList.toggle("sidebar-open", open); // ★ 콘텐츠를 밀어냄
+        if (b) b.classList.toggle("show", open); // 좁은 화면에서만 백드롭
+        if (btn) btn.classList.toggle("active", open); // 버튼 눌림 표시
+        // 맵 탭이 활성일 때 사이드바 토글로 너비가 바뀌면 맵 변환 재적용
+        if (currentTab === "map") setTimeout(() => applyMapTransform && applyMapTransform(), 300);
       }
       window.toggleEncycloSidebar = toggleEncycloSidebar;
 
@@ -3986,9 +4014,9 @@
         const alreadyHit =
           !isMaster && meN.attacks && meN.attacks[warTarget] === curTurn;
 
-        // ★ 방어시설 개수 — 적이 방어막을 몇 겹 두르고 있는지
+        // ★ 방어시설 개수 — 적이 방어막을 몇 겹 두르고 있는지 (수도 포함 16칸 전체)
         let defCount = 0;
-        for (let i = CAPITAL_TILES; i < 16; i++) {
+        for (let i = 0; i < 16; i++) {
           const gv = tN.grid && tN.grid[i];
           if (gv && !isConquered(gv) && BMAP[gv] && BMAP[gv].defense) defCount++;
         }
@@ -4119,8 +4147,9 @@
         // ★ 방어 시스템 — 방어시설(🛡️ 요새·방패)이 있으면 공격을 막아낸다!
         //   공격은 방어시설 1개를 먼저 파괴하고, 목표 영토는 지켜진다.
         //   (방어시설을 다 부순 뒤에야 일반 건물을 점령할 수 있음)
+        //   ★ 수도(1~4번 칸)에 지은 방어시설도 실드로 작동하도록 16칸 전체를 검색한다.
         const defenseTiles = [];
-        for (let i = CAPITAL_TILES; i < 16; i++) {
+        for (let i = 0; i < 16; i++) {
           const gv = tN.grid[i];
           if (gv && !isConquered(gv) && BMAP[gv] && BMAP[gv].defense) {
             defenseTiles.push(i);
@@ -4303,8 +4332,24 @@
         n.eco -= cost;
         await Data.update("nations/" + key, { eco: Math.round(n.eco) });
         await applyGlobalPol(-12); // ★ 지구 공동 오염도를 함께 낮춤
+        const gpNow = getGlobalPol();
+        // ★ 영웅 알림 — 전 세계 채팅에 크게 공지해 다른 조의 동참을 유도
+        await Data.push("chat", {
+          user: "🌍 지구 환경 기구",
+          nation: "un",
+          text:
+            "🦸 영웅의 탄생! [" +
+            NATIONS[key].name +
+            "]이(가) " +
+            fmt(cost) +
+            "G를 기부해 지구 오염도를 12 낮췄습니다! (현재 지구 오염도 " +
+            gpNow +
+            ") 다른 나라도 함께해요! 🌱",
+          hero: true,
+          ts: Date.now(),
+        });
         toast(
-          "🌱 환경 기부 완료! (-" + fmt(cost) + "G) 지구 오염도 -12 🌍",
+          "🌱 환경 기부 완료! (-" + fmt(cost) + "G) 지구 오염도 -12 🌍 전 세계에 알렸어요!",
           "good",
         );
       }
@@ -4396,6 +4441,15 @@
             const col =
               m.nation && NATIONS[m.nation] ? NATIONS[m.nation].color : "var(--c-un)";
             const who = m.nation && NATIONS[m.nation] ? NATIONS[m.nation].name : "UN";
+            // ★ 환경 기부 영웅 알림 — 눈에 확 띄는 금빛 강조 스타일
+            if (m.hero) {
+              return (
+                '<div style="background:linear-gradient(135deg,rgba(245,197,24,.22),rgba(43,182,115,.18));border:1.5px solid var(--good);border-radius:10px;padding:.6rem .7rem;box-shadow:0 0 14px rgba(43,182,115,.25);">' +
+                '<div style="font-size:.95rem;font-weight:bold;color:var(--good);line-height:1.5;">' +
+                escapeHTML(m.text || "") +
+                "</div></div>"
+              );
+            }
             return (
               '<div style="background:rgba(0,0,0,.25);border-left:3px solid ' +
               col +
@@ -4778,6 +4832,64 @@
       }
       window.setMasterView = setMasterView;
 
+      /* ----- 투표 현황판 — 현재 활성 미션에 아직 투표 안 한 국가 표시 ----- */
+      function renderVoteStatus() {
+        const aid = state.meta.agenda;
+        if (!aid || !AMAP[aid] || !state.nations) {
+          return (
+            '<div style="margin-top:.6rem;padding:.5rem .7rem;border-radius:8px;background:rgba(0,0,0,.25);font-size:.74rem;color:var(--ink-faint);">' +
+            "🗳️ 활성 미션이 없습니다. 미션을 전송하면 각 나라의 투표 현황이 여기에 표시됩니다." +
+            "</div>"
+          );
+        }
+        const voted = [];
+        const notVoted = [];
+        NATION_ORDER.forEach((k) => {
+          const n = state.nations[k];
+          if (!n) return;
+          if (n.lastVote === aid) voted.push(k);
+          else notVoted.push(k);
+        });
+        const chip = (k, done) =>
+          '<span style="display:inline-flex;align-items:center;gap:.25rem;padding:.18rem .5rem;border-radius:999px;font-size:.72rem;font-weight:bold;background:' +
+          (done ? "rgba(43,182,115,.18)" : "rgba(229,72,77,.16)") +
+          ";color:" +
+          (done ? "var(--good)" : "var(--bad)") +
+          ';border:1px solid ' +
+          (done ? "var(--good)" : "var(--bad)") +
+          ';"><span class="flag" style="background:' +
+          NATIONS[k].color +
+          ';width:9px;height:9px;"></span>' +
+          (done ? "✓ " : "⏳ ") +
+          escapeHTML(NATIONS[k].name) +
+          "</span>";
+        let h =
+          '<div style="margin-top:.6rem;padding:.6rem .7rem;border-radius:8px;background:rgba(0,0,0,.28);border:1px solid ' +
+          (notVoted.length ? "var(--warn)" : "var(--good)") +
+          ';">';
+        h +=
+          '<div style="font-size:.78rem;font-weight:bold;margin-bottom:.45rem;color:' +
+          (notVoted.length ? "var(--warn)" : "var(--good)") +
+          ';">🗳️ 투표 현황 ' +
+          voted.length +
+          " / " +
+          (voted.length + notVoted.length) +
+          " 국가 완료" +
+          (notVoted.length === 0 ? " — 전원 투표 완료! 🎉" : "") +
+          "</div>";
+        if (notVoted.length) {
+          h +=
+            '<div style="font-size:.74rem;color:var(--ink);margin-bottom:.4rem;">⏳ <b>아직 투표 안 한 국가:</b> ' +
+            notVoted.map((k) => NATIONS[k].name).join(", ") +
+            ' <span style="color:var(--ink-dim);">— 턴 종료 시 자동으로 임의 선택 처리돼요.</span></div>';
+        }
+        h += '<div style="display:flex;gap:.35rem;flex-wrap:wrap;">';
+        notVoted.forEach((k) => (h += chip(k, false)));
+        voted.forEach((k) => (h += chip(k, true)));
+        h += "</div></div>";
+        return h;
+      }
+
       /* ----- MCU 통제실 렌더 ----- */
       function renderMCU() {
         const root = $("#mcuBody");
@@ -4946,6 +5058,7 @@
               AMAP[state.meta.agenda].title
             : "없음 (잠금)") +
           "</b></div>" +
+          renderVoteStatus() +
           "</div>" +
           /* 백성 계정 대량 생성 */
           '<div class="glass" style="padding:1rem 1.2rem;">' +
