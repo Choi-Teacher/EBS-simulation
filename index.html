@@ -6,7 +6,7 @@
       name="viewport"
       content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
     />
-    <title>Civ-Class V75 · Phase 3 Ultimate</title>
+    <title>E.B.S-Simulation</title>
 
     <!-- ================== EXTERNAL LIBS ================== -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -24,7 +24,7 @@
 
     <style>
       /* ============================================================
-   CIV-CLASS V75 — GLOBAL THEME TOKENS
+   E.B.S-Simulation — GLOBAL THEME TOKENS
    Phase themes swap these CSS variables to "evolve" the world.
    ============================================================ */
       :root {
@@ -786,13 +786,13 @@
       >
         <div style="text-align: center; margin-bottom: 6px">
           <div class="display glow-text" style="font-size: 2.1rem; line-height: 1.1">
-            CIV-CLASS
+            E.B.S-Simulation
           </div>
           <div
             class="jua"
-            style="color: var(--ink-dim); letter-spacing: 6px; font-size: 0.85rem"
+            style="color: var(--ink-dim); letter-spacing: 4px; font-size: 0.85rem"
           >
-            V75 · PHASE 3 ULTIMATE
+            국가경영 시뮬레이션
           </div>
         </div>
         <p
@@ -953,17 +953,6 @@
           >
             ?
           </button>
-          <div
-            class="badge"
-            id="phaseBadge"
-            style="
-              border-color: var(--glow);
-              color: #fff;
-              background: color-mix(in srgb, var(--glow) 30%, transparent);
-            "
-          >
-            Phase 1
-          </div>
           <div class="badge" id="turnBadge">Turn 1</div>
           <button
             id="logoutBtn"
@@ -1199,7 +1188,7 @@
     <script>
       "use strict";
       /* ============================================================================
-   CIV-CLASS V75 · PHASE 3 ULTIMATE — single-file engine
+   E.B.S-Simulation — single-file engine
    ============================================================================ */
 
       /* ----------------------------------------------------------------------------
@@ -2058,6 +2047,7 @@
         users: {}, // {username:{pw,nation,role}}
         chat: {},
         field: {}, // {nationKey: drawn card}
+        fieldDone: {}, // {nationKey: [완료한 미션 id...]} — 중복 방지
         submissions: {}, // {id: photo submission}
       };
       let ME = null; // {user, nation, role:'master'|'student'}
@@ -2104,6 +2094,7 @@
         });
         if (!keepUsers) await Data.set("users", {});
         await Data.set("field", {});
+        await Data.set("fieldDone", {});
         await Data.set("submissions", {});
         toast("🌌 빅뱅 완료! 새 세계가 열렸습니다.", "good");
       }
@@ -2150,6 +2141,10 @@
         });
         Data.onValue("field", (s) => {
           state.field = s.val() || {};
+          if (currentTab === "field") renderField();
+        });
+        Data.onValue("fieldDone", (s) => {
+          state.fieldDone = s.val() || {};
           if (currentTab === "field") renderField();
         });
         Data.onValue("submissions", (s) => {
@@ -2503,7 +2498,6 @@
       function renderHUD() {
         const ph = computePhase();
         document.body.setAttribute("data-phase", String(ph.phase));
-        $("#phaseBadge").textContent = "Phase " + ph.phase + " · " + PHASE_NAME[ph.phase];
         $("#turnBadge").textContent = "Turn " + (state.meta.turn || 1);
 
         const key = myNationKey();
@@ -2625,13 +2619,6 @@
               }).join(""),
           ],
           [
-            "⏳ 3단계 시대 진화",
-            "시대는 딱 3단계로 흘러갑니다. <b>가장 강한 나라의 (자본+군사+문화) 합계</b>가 기준이에요.<br><br>" +
-              '<div class="badge" style="margin:.2rem;">Phase 1 · 기틀 마련</div> → 합계 <b class="num">3,000</b> 돌파 시<br>' +
-              '<div class="badge" style="margin:.2rem;">Phase 2 · 내실 다지기</div> → 합계 <b class="num">8,000</b> 돌파 시<br>' +
-              '<div class="badge" style="margin:.2rem;">Phase 3 · 국가 확장</div><br><br>단계가 오르면 행성의 하늘색(테마)이 변합니다!',
-          ],
-          [
             "🔄 턴 정산 (마스터 권한)",
             "마스터가 '턴 종료'를 누르면 한 해가 지나갑니다. <b>오염·생산·유지비·세금은 모두 이때 한꺼번에 정산</b>돼요(건물을 짓는 즉시가 아닙니다).<br>" +
               "· 인구 <b>5% 자연 증가</b> (생명 제국은 <b>1.05배</b> 추가 성장)<br>" +
@@ -2693,7 +2680,7 @@
           ],
         ];
         $("#guideBody").innerHTML =
-          '<div class="glass" style="padding:1rem;margin-bottom:1rem;"><h2 style="margin:0;font-size:1.5rem;">📖 시스템 가이드</h2><p style="color:var(--ink-dim);margin:.4rem 0 0;font-size:.88rem;">Civ-Class V75에 오신 것을 환영합니다. 아래 규칙을 익히고 위대한 제국을 건설하세요!</p></div>' +
+          '<div class="glass" style="padding:1rem;margin-bottom:1rem;"><h2 style="margin:0;font-size:1.5rem;">📖 시스템 가이드</h2><p style="color:var(--ink-dim);margin:.4rem 0 0;font-size:.88rem;">E.B.S-Simulation에 오신 것을 환영합니다. 아래 규칙을 익히고 위대한 제국을 건설하세요!</p></div>' +
           '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px;">' +
           cards
             .map(
@@ -2897,9 +2884,7 @@
           phaseColor +
           ';color:' +
           phaseColor +
-          ';">Phase ' +
-          ag.phase +
-          " · Turn " +
+          ';">Turn ' +
           (ag.turn || "?") +
           "</span>" +
           '<span class="badge">📋 필수 미션</span>' +
@@ -3107,11 +3092,41 @@
       function buildingCounts(grid) {
         const c = {};
         (grid || []).forEach((id) => {
-          if (id) {
+          if (id && !isConquered(id)) {
             c[id] = (c[id] || 0) + 1;
           }
         });
         return c;
+      }
+
+      /* ★ 한 나라가 '실제 소유한' 모든 건물 카운트 — 자기 그리드의 일반 건물 +
+         다른 나라 그리드에서 자신이 점령해 지은 건물(@me:bld)까지 포함 */
+      function ownedBuildingCounts(ownerKey) {
+        const c = {};
+        // 1) 자기 영토의 일반 건물
+        const own = (state.nations[ownerKey] && state.nations[ownerKey].grid) || [];
+        own.forEach((id) => {
+          if (id && !isConquered(id) && BMAP[id]) c[id] = (c[id] || 0) + 1;
+        });
+        // 2) 타국 영토에서 내가 점령해 지은 건물
+        NATION_ORDER.forEach((k) => {
+          if (k === ownerKey) return;
+          const g = (state.nations[k] && state.nations[k].grid) || [];
+          g.forEach((cell) => {
+            if (isConquered(cell) && conquerorOf(cell) === ownerKey) {
+              const b = conqueredBuilding(cell);
+              if (b && BMAP[b]) c[b] = (c[b] || 0) + 1;
+            }
+          });
+        });
+        return c;
+      }
+      // 점령지 건물 포함 총 건물 개수 (유지비 계산용)
+      function ownedBuildingTotal(ownerKey) {
+        const c = ownedBuildingCounts(ownerKey);
+        let t = 0;
+        for (const k in c) t += c[k];
+        return t;
       }
 
       function renderDomestic() {
@@ -3398,8 +3413,6 @@
           '<div class="display" style="font-size:1.3rem;color:var(--c-un);">UN 허브</div>' +
           '<div style="font-size:.72rem;color:var(--ink-dim);margin-top:.2rem;">Turn ' +
           (state.meta.turn || 1) +
-          " · Phase " +
-          computePhase().phase +
           "</div>" +
           "</div>";
 
@@ -3416,8 +3429,10 @@
                 ? '<span style="position:absolute;top:1px;left:2px;font-size:.55rem;" title="수도(점령 불가)">👑</span>'
                 : "";
             if (isConquered(id)) {
-              // ★ 점령당한 영토 — 공격국 깃발 + 잔해
+              // ★ 점령당한 영토 — 공격국 깃발. 점령국이 건물을 지었으면 그 건물도 표시
               const conq = conquerorOf(id);
+              const cb = conqueredBuilding(id);
+              const cbB = cb ? BMAP[cb] : null;
               const cc = NATIONS[conq] ? NATIONS[conq].color : "#e11d48";
               cells +=
                 '<div class="cell" data-nation="' +
@@ -3425,7 +3440,11 @@
                 '" data-idx="' +
                 i +
                 '" title="' +
-                escapeHTML((NATIONS[conq] ? NATIONS[conq].name : "적국") + "에게 점령됨") +
+                escapeHTML(
+                  (NATIONS[conq] ? NATIONS[conq].name : "적국") +
+                    "이(가) 점령" +
+                    (cbB ? " · " + cbB.name : ""),
+                ) +
                 '" style="border:2px solid ' +
                 cc +
                 ";background:repeating-linear-gradient(45deg," +
@@ -3434,10 +3453,21 @@
                 cc +
                 '22 6px,transparent 6px,transparent 12px);">' +
                 capMark +
-                "🚩" +
-                '<span class="clabel" style="color:' +
-                cc +
-                '">점령됨</span></div>';
+                '<span style="position:absolute;top:1px;right:3px;font-size:.6rem;">🚩</span>' +
+                (cbB
+                  ? cbB.icon +
+                    (cbB.defense
+                      ? '<span style="position:absolute;bottom:13px;right:3px;font-size:.55rem;">🛡️</span>'
+                      : "") +
+                    '<span class="clabel" style="color:' +
+                    cc +
+                    '">' +
+                    escapeHTML(cbB.name) +
+                    "</span>"
+                  : '<span class="clabel" style="color:' +
+                    cc +
+                    '">점령됨</span>') +
+                "</div>";
             } else if (id) {
               const b = BMAP[id];
               cells +=
@@ -3653,10 +3683,15 @@
         const n = state.nations[targetKey];
         const cfg = NATIONS[targetKey];
         const isMaster = ME.role === "master";
-        const isOwner = ME.role === "student" && ME.nation === targetKey;
         const rawCell = n.grid ? n.grid[idx] : "";
         const conquered = isConquered(rawCell);
-        const occupied = !!(rawCell && !conquered); // 실제 건물이 있을 때만 '점유'
+        const conqKey = conquered ? conquerorOf(rawCell) : "";
+        const conqBld = conquered ? conqueredBuilding(rawCell) : "";
+        // 이 칸의 '실질 소유자' — 점령된 칸은 점령국, 아니면 원주인
+        const effectiveOwner = conquered ? conqKey : targetKey;
+        const isOwner = ME.role === "student" && ME.nation === effectiveOwner;
+        // '점유' = 실제 건물이 있음 (일반 건물이든, 점령 후 점령국이 지은 건물이든)
+        const occupied = !!((rawCell && !conquered) || (conquered && conqBld));
 
         $("#buildModalTitle").innerHTML =
           '<span style="color:' +
@@ -3668,16 +3703,20 @@
           "번 영토";
         const body = $("#buildModalBody");
 
-        // permission: students may only act on their own cells
+        // permission: 학생은 '실질 소유 칸'에만 행동 가능 (점령한 칸 포함)
         if (!isMaster && !isOwner) {
-          body.innerHTML =
-            '<div style="color:var(--ink-dim);line-height:1.7;">다른 나라의 영토에는 건설할 수 없습니다.<br>이 땅을 노린다면 <b>💥 침략 상황실</b>에서 공격하세요.</div>';
+          body.innerHTML = conquered
+            ? '<div style="color:var(--ink-dim);line-height:1.7;">🚩 이 땅은 <b>' +
+              escapeHTML(NATIONS[conqKey] ? NATIONS[conqKey].name : "다른 나라") +
+              "</b>이(가) 점령한 영토입니다.<br>되찾으려면 <b>💥 침략 상황실</b>에서 다시 공격하세요.</div>"
+            : '<div style="color:var(--ink-dim);line-height:1.7;">다른 나라의 영토에는 건설할 수 없습니다.<br>이 땅을 노린다면 <b>💥 침략 상황실</b>에서 공격하세요.</div>';
           openModal("buildModal");
           return;
         }
 
         if (occupied) {
-          const b = BMAP[n.grid[idx]];
+          const bId = conquered ? conqBld : n.grid[idx];
+          const b = BMAP[bId];
           let h =
             '<div class="glass" style="padding:1rem;display:flex;gap:.8rem;align-items:center;">' +
             '<div style="font-size:2.4rem;">' +
@@ -3689,6 +3728,11 @@
             '<div style="font-size:.8rem;color:var(--ink-dim);">' +
             escapeHTML(b.desc) +
             "</div></div></div>" +
+            (conquered
+              ? '<div style="margin:.5rem 0;font-size:.8rem;color:var(--c-steel);">🚩 ' +
+                escapeHTML(NATIONS[conqKey] ? NATIONS[conqKey].name : "점령국") +
+                "이(가) 점령해 지은 건물입니다.</div>"
+              : "") +
             '<div style="margin:.8rem 0;font-size:.85rem;line-height:1.8;"><div><b>턴당</b> ' +
             effString(b.p) +
             "</div>" +
@@ -3708,7 +3752,7 @@
               idx +
               ')">💣 강제 폭파 (철거)</button>';
           } else if (isOwner) {
-            const refund = Math.round(effCost(targetKey, b) * SELL_REFUND_RATE);
+            const refund = Math.round(effCost(effectiveOwner, b) * SELL_REFUND_RATE);
             h +=
               '<div class="divider"></div><div style="font-size:.8rem;color:var(--ink-dim);margin-bottom:.5rem;">🏚️ 이 건물을 팔면 건설비의 <b>30%</b>인 <b style="color:var(--c-capital)">' +
               fmt(refund) +
@@ -3812,23 +3856,42 @@
           toast("세계가 아직 준비되지 않았습니다.", "bad");
           return;
         }
-        const n = clone(state.nations[targetKey]);
         const isMaster = ME && ME.role === "master";
-        if (!Array.isArray(n.grid) || n.grid.length !== 16) {
-          n.grid = Array(16).fill("");
+        const gridOwner = clone(state.nations[targetKey]); // 칸이 속한 나라(그리드 주인)
+        if (!Array.isArray(gridOwner.grid) || gridOwner.grid.length !== 16) {
+          gridOwner.grid = Array(16).fill("");
         }
-        // 점령 마커(@)는 '탈환' 가능 — 실제 건물이 있을 때만 차단
-        if (n.grid[idx] && !isConquered(n.grid[idx])) {
+        const cell = gridOwner.grid[idx];
+        const onConquered = isConquered(cell);
+        const conqKey = onConquered ? conquerorOf(cell) : "";
+        const conqHasBld = onConquered && !!conqueredBuilding(cell);
+
+        // 이미 (일반)건물이 있거나, 점령지에 이미 점령국 건물이 있으면 차단
+        if ((cell && !onConquered) || conqHasBld) {
           toast("이미 건물이 있습니다.", "bad");
           return;
         }
-        const reclaiming = isConquered(n.grid[idx]);
 
-        // ★ 비용 계산 (마스터는 무료, 학생은 국가 할인 적용)
-        const cost = isMaster ? 0 : effCost(targetKey, b);
+        // ★ '건설 주체'(builder) 결정 — 점령지에선 점령국이, 아니면 그리드 주인이 건설
+        const builderKey = isMaster
+          ? targetKey // 마스터는 무료라 자원 차감 없음(아무 키나)
+          : onConquered
+            ? conqKey // 점령지 → 점령국이 건설
+            : targetKey; // 일반 → 원주인이 건설
+
+        // 학생은 자기 소유(또는 자기가 점령한) 칸에만 건설 가능
+        if (!isMaster && ME.nation !== builderKey) {
+          toast("내 영토(또는 내가 점령한 땅)에만 건설할 수 있습니다.", "bad");
+          return;
+        }
+
+        const builder = isMaster ? gridOwner : clone(state.nations[builderKey]);
+
+        // ★ 비용 계산 (건설 주체의 국가 할인 적용)
+        const cost = isMaster ? 0 : effCost(builderKey, b);
 
         // 학생일 때 잔액 1차 확인
-        if (!isMaster && (n.eco || 0) < cost) {
+        if (!isMaster && (builder.eco || 0) < cost) {
           toast("자본이 부족합니다.", "bad");
           return;
         }
@@ -3840,7 +3903,8 @@
               b.icon +
               " " +
               b.name +
-              " 을(를) 건설합니다.\n비용: " +
+              (onConquered ? " 을(를) 🚩점령지에 건설합니다." : " 을(를) 건설합니다.") +
+              "\n비용: " +
               fmt(cost) +
               "골드\n\n계속하시겠습니까?",
           );
@@ -3858,46 +3922,62 @@
             return;
           }
           // 결제 직전 잔액 재확인 (그 사이 자본이 변했을 수 있음)
-          if ((state.nations[targetKey].eco || 0) < cost) {
+          if ((state.nations[builderKey].eco || 0) < cost) {
             toast("자본이 부족합니다.", "bad");
             return;
           }
         }
 
-        if (!isMaster) n.eco -= cost;
-        // apply immediate onBuild effects (오염은 지구 공동 수치로 분리)
+        // 자원 차감 + 즉시효과는 '건설 주체'에게 적용
+        if (!isMaster) builder.eco -= cost;
         let instantGpol = 0;
         for (const k in b.e) {
           if (k === "pol" || k === "gpol") {
             instantGpol += b.e[k];
             continue;
           }
-          n[k] = (n[k] || 0) + b.e[k];
+          builder[k] = (builder[k] || 0) + b.e[k];
         }
-        n.grid[idx] = bId; // ★ '' 슬롯에 건물 id 기록 (array 유지)
-        // clamp
-        n.hap = clamp(Math.round(n.hap), MIN_HAP, 100);
-        n.pop = Math.max(1000, Math.round(n.pop));
-        n.eco = Math.max(0, Math.round(n.eco));
-        n.mil = Math.max(0, Math.round(n.mil));
-        n.cul = Math.max(0, Math.round(n.cul));
+        // 그리드 기록: 점령지면 "@점령국:건물", 일반이면 그냥 건물 id
+        gridOwner.grid[idx] = onConquered ? "@" + conqKey + ":" + bId : bId;
 
-        await Data.update("nations/" + targetKey, {
-          pop: n.pop,
-          hap: n.hap,
-          eco: n.eco,
-          mil: n.mil,
-          cul: n.cul,
-          grid: n.grid,
-        });
+        // 건설 주체 스탯 클램프
+        builder.hap = clamp(Math.round(builder.hap), MIN_HAP, 100);
+        builder.pop = Math.max(1000, Math.round(builder.pop));
+        builder.eco = Math.max(0, Math.round(builder.eco));
+        builder.mil = Math.max(0, Math.round(builder.mil));
+        builder.cul = Math.max(0, Math.round(builder.cul));
+
+        // 그리드 주인의 grid 저장
+        await Data.update("nations/" + targetKey, { grid: gridOwner.grid });
+        // 건설 주체가 그리드 주인과 다르면(점령지 건설) 건설 주체 스탯도 저장
+        if (builderKey !== targetKey || isMaster) {
+          if (!isMaster) {
+            await Data.update("nations/" + builderKey, {
+              pop: builder.pop,
+              hap: builder.hap,
+              eco: builder.eco,
+              mil: builder.mil,
+              cul: builder.cul,
+            });
+          }
+        } else {
+          await Data.update("nations/" + builderKey, {
+            pop: builder.pop,
+            hap: builder.hap,
+            eco: builder.eco,
+            mil: builder.mil,
+            cul: builder.cul,
+          });
+        }
         if (instantGpol) await applyGlobalPol(instantGpol);
         closeModal("buildModal");
         toast(
-          (reclaiming ? "🚩 영토 탈환! " : "🏗️ ") +
+          (onConquered ? "🚩 점령지 개발! " : "🏗️ ") +
             b.icon +
             " " +
             b.name +
-            (reclaiming ? " 재건 완료!" : " 건설 완료!"),
+            (onConquered ? " 건설 완료! (점령한 땅)" : " 건설 완료!"),
           "good",
         );
       }
@@ -3906,33 +3986,38 @@
       const SELL_REFUND_RATE = 0.3; // 건물 판매 시 건설비의 30%만 환급 (헐값)
       async function doDemolish(targetKey, idx) {
         const isMaster = ME.role === "master";
-        const isOwner = ME.role === "student" && ME.nation === targetKey;
-        if (!isMaster && !isOwner) {
-          toast("내 나라의 건물만 철거할 수 있습니다.", "bad");
-          return;
-        }
         if (!state.nations || !state.nations[targetKey]) return;
-        const n = clone(state.nations[targetKey]);
-        const bId = n.grid[idx];
+        const gridOwner = clone(state.nations[targetKey]);
+        const cell = gridOwner.grid[idx];
+        const onConquered = isConquered(cell);
+        const conqKey = onConquered ? conquerorOf(cell) : "";
+        const bId = onConquered ? conqueredBuilding(cell) : cell;
         const b = BMAP[bId];
         if (!b) {
           toast("철거할 건물이 없습니다.", "bad");
           return;
         }
+        // 실질 소유자 — 점령지 건물은 점령국 소유
+        const ownerKey = onConquered ? conqKey : targetKey;
+        const isOwner = ME.role === "student" && ME.nation === ownerKey;
+        if (!isMaster && !isOwner) {
+          toast("내 나라의 건물만 철거할 수 있습니다.", "bad");
+          return;
+        }
 
         if (isMaster) {
-          // 마스터 강제 폭파 — 환불 없음
+          // 마스터 강제 폭파 — 환불 없음. 점령지면 빈 점령칸(@점령국)으로 되돌림
           if (!confirm("💣 이 건물을 강제 폭파할까요? (자원 환불 없음)")) return;
-          n.grid[idx] = "";
-          await Data.update("nations/" + targetKey, { grid: n.grid });
+          gridOwner.grid[idx] = onConquered ? "@" + conqKey : "";
+          await Data.update("nations/" + targetKey, { grid: gridOwner.grid });
           closeModal("buildModal");
           toast("💣 건물을 강제 폭파했습니다.", "good");
           return;
         }
 
         // 학생(소유자) 판매 — 건설비의 30%만 환급 + ★ 건설 시 받은 즉시효과 회수(꼼수 차단)
-        const refund = Math.round(effCost(targetKey, b) * SELL_REFUND_RATE);
-        // 즉시효과(b.e)로 올랐던 스탯을 그대로 되돌린다 (병원 짓고 팔아 지지율만 챙기는 등 방지)
+        const owner = clone(state.nations[ownerKey]);
+        const refund = Math.round(effCost(ownerKey, b) * SELL_REFUND_RATE);
         const undo = [];
         let undoGpol = 0;
         for (const k in b.e) {
@@ -3957,32 +4042,36 @@
             b.icon +
             " " +
             b.name +
+            (onConquered ? " (🚩점령지 건물)" : "") +
             " 을(를) 철거하고 팔겠습니까?\n\n환급금: " +
             fmt(refund) +
             "골드 (건설비의 30%만 돌려받아요)" +
             undoNote,
         );
         if (!ok1) return;
-        // 즉시효과 되돌리기
+        // 즉시효과 되돌리기 (소유자에게)
         for (const k in b.e) {
           if (k === "pol" || k === "gpol") continue;
-          n[k] = (n[k] || 0) - b.e[k];
+          owner[k] = (owner[k] || 0) - b.e[k];
         }
-        n.grid[idx] = "";
-        n.eco = (n.eco || 0) + refund;
-        // 안전 클램프 (회수로 음수가 되지 않도록)
-        n.hap = clamp(Math.round(n.hap || 0), MIN_HAP, 100);
-        n.pop = Math.max(1000, Math.round(n.pop || 0));
-        n.eco = Math.max(0, Math.round(n.eco));
-        n.mil = Math.max(0, Math.round(n.mil || 0));
-        n.cul = Math.max(0, Math.round(n.cul || 0));
-        await Data.update("nations/" + targetKey, {
-          grid: n.grid,
-          eco: n.eco,
-          pop: n.pop,
-          hap: n.hap,
-          mil: n.mil,
-          cul: n.cul,
+        // 그리드: 점령지면 빈 점령칸(@점령국) 유지, 일반이면 완전히 비움
+        gridOwner.grid[idx] = onConquered ? "@" + conqKey : "";
+        owner.eco = (owner.eco || 0) + refund;
+        // 안전 클램프
+        owner.hap = clamp(Math.round(owner.hap || 0), MIN_HAP, 100);
+        owner.pop = Math.max(1000, Math.round(owner.pop || 0));
+        owner.eco = Math.max(0, Math.round(owner.eco));
+        owner.mil = Math.max(0, Math.round(owner.mil || 0));
+        owner.cul = Math.max(0, Math.round(owner.cul || 0));
+        // 그리드 주인의 grid 저장
+        await Data.update("nations/" + targetKey, { grid: gridOwner.grid });
+        // 소유자 스탯 저장
+        await Data.update("nations/" + ownerKey, {
+          eco: owner.eco,
+          pop: owner.pop,
+          hap: owner.hap,
+          mil: owner.mil,
+          cul: owner.cul,
         });
         if (undoGpol) await applyGlobalPol(undoGpol);
         closeModal("buildModal");
@@ -4009,7 +4098,16 @@
         return typeof v === "string" && v.charAt(0) === "@";
       }
       function conquerorOf(v) {
-        return isConquered(v) ? v.slice(1) : "";
+        if (!isConquered(v)) return "";
+        const rest = v.slice(1);
+        const ci = rest.indexOf(":");
+        return ci === -1 ? rest : rest.slice(0, ci);
+      }
+      // 점령 타일에 지어진 건물 id (없으면 빈 문자열) — "@capital:factory" → "factory"
+      function conqueredBuilding(v) {
+        if (!isConquered(v)) return "";
+        const ci = v.indexOf(":");
+        return ci === -1 ? "" : v.slice(ci + 1);
       }
 
       function attackCost(attackerKey, type, building) {
@@ -4077,11 +4175,16 @@
         const alreadyHit =
           !isMaster && meN.attacks && meN.attacks[warTarget] === curTurn;
 
-        // ★ 방어시설 개수 — 적이 방어막을 몇 겹 두르고 있는지 (수도 포함 16칸 전체)
+        // ★ 방어시설 개수 — 적이 방어막을 몇 겹 두르고 있는지 (수도 + 점령지 포함 16칸 전체)
         let defCount = 0;
         for (let i = 0; i < 16; i++) {
           const gv = tN.grid && tN.grid[i];
-          if (gv && !isConquered(gv) && BMAP[gv] && BMAP[gv].defense) defCount++;
+          if (!gv) continue;
+          if (!isConquered(gv) && BMAP[gv] && BMAP[gv].defense) defCount++;
+          else if (isConquered(gv)) {
+            const cb = conqueredBuilding(gv);
+            if (cb && BMAP[cb] && BMAP[cb].defense) defCount++;
+          }
         }
 
         html +=
@@ -4210,12 +4313,19 @@
         // ★ 방어 시스템 — 방어시설(🛡️ 요새·방패)이 있으면 공격을 막아낸다!
         //   공격은 방어시설 1개를 먼저 파괴하고, 목표 영토는 지켜진다.
         //   (방어시설을 다 부순 뒤에야 일반 건물을 점령할 수 있음)
-        //   ★ 수도(1~4번 칸)에 지은 방어시설도 실드로 작동하도록 16칸 전체를 검색한다.
+        //   ★ 수도 칸(1~4) + 점령지에 지은 방어시설(@국가:요새)도 모두 실드로 작동.
         const defenseTiles = [];
         for (let i = 0; i < 16; i++) {
           const gv = tN.grid[i];
-          if (gv && !isConquered(gv) && BMAP[gv] && BMAP[gv].defense) {
+          if (!gv) continue;
+          // 일반 방어 건물
+          if (!isConquered(gv) && BMAP[gv] && BMAP[gv].defense) {
             defenseTiles.push(i);
+          }
+          // 점령지에 지어진 방어 건물
+          else if (isConquered(gv)) {
+            const cb = conqueredBuilding(gv);
+            if (cb && BMAP[cb] && BMAP[cb].defense) defenseTiles.push(i);
           }
         }
         // 공격 대상이 방어시설 자신이 아니고, 방어시설이 남아있다면 → 방어막이 먼저 막는다
@@ -4223,8 +4333,13 @@
         if (!targetIsDefense && defenseTiles.length > 0) {
           // 가장 가까운(작은 인덱스) 방어시설이 자기를 희생해 막아낸다
           const shieldIdx = defenseTiles[0];
-          const shieldB = BMAP[tN.grid[shieldIdx]];
-          tN.grid[shieldIdx] = ""; // 방어시설 파괴(소멸)
+          const shieldCell = tN.grid[shieldIdx];
+          const shieldConq = isConquered(shieldCell);
+          const shieldB = shieldConq
+            ? BMAP[conqueredBuilding(shieldCell)]
+            : BMAP[shieldCell];
+          // 방어시설 파괴 — 점령지 방어시설이면 빈 점령칸(@점령국)으로 되돌림
+          tN.grid[shieldIdx] = shieldConq ? "@" + conquerorOf(shieldCell) : "";
           tN.hap = clamp(Math.round((tN.hap || 0) - 1), MIN_HAP, 100);
 
           // 침략 기록 (막혔어도 이번 턴 공격권은 소모)
@@ -4618,8 +4733,9 @@
           const growth = 0.05 * (trait.popGrowthBonus || 1.0);
           n.pop = n.pop + n.pop * growth;
 
-          /* 2) 건설된 건물들의 턴당 지속 효과(perTurn) + 오염 증감(pol→지구 오염에 합산) */
-          const counts = buildingCounts(n.grid);
+          /* 2) 건설된 건물들의 턴당 지속 효과(perTurn) + 오염 증감
+             ★ 점령지에 지은 건물도 점령국의 생산·오염으로 합산 */
+          const counts = ownedBuildingCounts(key);
           for (const bid in counts) {
             const B = BMAP[bid];
             if (!B) continue;
@@ -4634,8 +4750,8 @@
             }
           }
 
-          /* ★ 유지비(누진세) — 건물 '개수'에 따라 급증 (4개부터 발생) */
-          const upkeep = nationUpkeep(n.grid);
+          /* ★ 유지비(누진세) — 점령지 건물 포함 전체 '개수'에 따라 급증 */
+          const upkeep = maintenanceForCount(ownedBuildingTotal(key));
 
           /* 3) 세금 징수 : 인구 × 지지율에 비례 */
           let tax = Math.round((n.pop / 1000) * (n.hap / 100) * 60);
@@ -5025,16 +5141,14 @@
           (val != null ? val : "") +
           '" style="background:rgba(0,0,0,.35);border:1px solid var(--line);border-radius:8px;padding:.4rem;color:var(--ink);font-family:Orbitron;"></label>';
 
-        /* 아젠다 선택 옵션 (Phase 라벨 포함) */
+        /* 아젠다 선택 옵션 */
         const agOpts = AGENDAS.map(
           (a) =>
             '<option value="' +
             a.id +
             '">Turn ' +
             a.turn +
-            " (P" +
-            a.phase +
-            ") · " +
+            " · " +
             a.title +
             "</option>",
         ).join("");
@@ -5088,8 +5202,6 @@
           '<div><div style="font-family:var(--font-disp);font-size:1.3rem;">👑 MCU 마스터 통제실</div>' +
           '<div style="font-size:.75rem;color:var(--ink-dim);">신의 권능으로 행성을 다스리세요 · Turn ' +
           (state.meta.turn || 1) +
-          " · Phase " +
-          computePhase().phase +
           "</div></div>" +
           '<button class="btn btn-lg" style="border-color:var(--good);color:var(--good);" onclick="settleTurn()">⏳ 턴 종료 정산</button>' +
           "</div>" +
@@ -5257,6 +5369,54 @@
           desc: "모둠원 전원이 손을 들고 <b>좋은 시민이 되겠다는 선서</b>를 외치는 장면을 찍어 인증하세요. 선서문은 모둠이 직접 만들어요.",
           tip: "예: '우리는 서로를 존중하고, 약속을 지키며, 지구를 아끼는 시민이 되겠습니다.'",
         },
+        {
+          id: "f_rules_poster",
+          type: "photo",
+          icon: "📋",
+          title: "공공질서 캠페인 포스터",
+          desc: "모두가 지키면 좋은 <b>공공질서 한 가지</b>(차례 지키기, 쓰레기 줍기, 조용히 하기 등)를 정해 캠페인 포스터를 그리고, 그 포스터를 들고 찍어 인증하세요.",
+          tip: "왜 그 질서가 필요한지 한 줄로 적으면 더 좋아요.",
+        },
+        {
+          id: "f_recycle_sort",
+          type: "photo",
+          icon: "♻️",
+          title: "분리수거 직접 해보기",
+          desc: "교실이나 학교의 재활용품을 <b>종류별로 정확히 분리수거</b>하는 모습을 찍어 인증하세요. 종이·플라스틱·캔을 구분해 보세요.",
+          tip: "분리수거는 지구 오염을 줄이는 가장 쉬운 실천이에요.",
+        },
+        {
+          id: "f_compliment",
+          type: "photo",
+          icon: "😊",
+          title: "칭찬 릴레이",
+          desc: "모둠원이 <b>서로의 장점을 한 가지씩 칭찬</b>하고, 칭찬을 적은 쪽지를 모아 든 장면을 찍어 인증하세요. 공동체는 서로를 존중할 때 단단해져요.",
+          tip: "구체적으로 칭찬하면 더 따뜻해요. (예: '발표를 또박또박 잘해')",
+        },
+        {
+          id: "f_mediate",
+          type: "photo",
+          icon: "🤲",
+          title: "갈등을 평화롭게 해결하기",
+          desc: "의견이 서로 다를 때 <b>대화로 합의점을 찾는 회의</b>를 열어보세요. 서로 다른 의견 두 가지와 합의한 결론을 종이에 적어 찍어 인증하세요.",
+          tip: "다툼은 나쁜 게 아니에요. 어떻게 푸느냐가 중요해요.",
+        },
+        {
+          id: "f_promise_keep",
+          type: "photo",
+          icon: "🔑",
+          title: "약속 지키기 다짐",
+          desc: "우리 모둠이 <b>오늘 꼭 지킬 약속 한 가지</b>를 정하고, 손가락 걸고 약속하는 장면을 찍어 인증하세요. 그리고 턴이 끝날 때 지켰는지 확인해요.",
+          tip: "작은 약속이라도 지키면 신뢰가 쌓여요.",
+        },
+        {
+          id: "f_clean_together",
+          type: "photo",
+          icon: "🧹",
+          title: "우리 공간 함께 청소하기",
+          desc: "모둠 자리나 교실의 <b>한 구역을 다 같이 깨끗하게 청소</b>하는 모습을 찍어 인증하세요. 공공장소는 모두가 함께 가꿔요.",
+          tip: "누가 시키지 않아도 스스로 하면 진짜 멋진 시민이에요.",
+        },
       ];
       const FCMAP = {};
       FIELD_CARDS.forEach((c) => (FCMAP[c.id] = c));
@@ -5315,7 +5475,17 @@
           );
           return;
         }
-        const card = FIELD_CARDS[Math.floor(Math.random() * FIELD_CARDS.length)];
+        // ★ 이미 완료(승인)한 미션은 다시 안 나오게 — 나라별 완료 목록에서 제외
+        const doneList =
+          (state.fieldDone && state.fieldDone[key]) ? state.fieldDone[key] : [];
+        let pool = FIELD_CARDS.filter((c) => doneList.indexOf(c.id) === -1);
+        let allCleared = false;
+        if (pool.length === 0) {
+          // 16종을 모두 완료한 경우 — 다시 전체에서 뽑되 안내
+          pool = FIELD_CARDS.slice();
+          allCleared = true;
+        }
+        const card = pool[Math.floor(Math.random() * pool.length)];
         await Data.set("field/" + key, {
           cardId: card.id,
           status: "drawn",
@@ -5323,7 +5493,12 @@
           ts: Date.now(),
         });
         activeCardId = card.id;
-        toast("🎴 '" + card.title + "' 미션을 뽑았습니다!", "good");
+        toast(
+          allCleared
+            ? "🎉 모든 시민 미션을 완료했어요! '" + card.title + "' 미션에 다시 도전합니다!"
+            : "🎴 '" + card.title + "' 미션을 뽑았습니다!",
+          "good",
+        );
       }
       window.drawCard = drawCard;
 
@@ -5392,6 +5567,15 @@
           turn: keepTurn,
           ts: Date.now(),
         });
+        // ★ 완료한 미션을 나라별 목록에 추가 (다시 안 뽑히게)
+        const doneList =
+          (state.fieldDone && state.fieldDone[sub.nation])
+            ? state.fieldDone[sub.nation].slice()
+            : [];
+        if (doneList.indexOf(sub.cardId) === -1) {
+          doneList.push(sub.cardId);
+          await Data.set("fieldDone/" + sub.nation, doneList);
+        }
         await applyDelta(sub.nation, { cul: FIELD_REWARD_CUL }, {});
         await Data.remove("submissions/" + sid);
         await Data.push("chat", {
@@ -5455,12 +5639,37 @@
         const drewThisTurn = rec && rec.turn === curTurn;
         const lockDraw = ME.role === "master" || inProgress || drewThisTurn;
 
+        // ★ 나라별 완료 미션 진행도 (중복 없이 16종)
+        const doneList =
+          (state.fieldDone && state.fieldDone[key]) ? state.fieldDone[key] : [];
+        const doneCount = doneList.length;
+        const totalMissions = FIELD_CARDS.length;
+        const allCleared = doneCount >= totalMissions;
+
         let html =
           '<div class="glass-strong" style="padding:1rem;margin-bottom:1rem;">' +
           '<h2 style="margin:0 0 .3rem;font-size:1.4rem;">🎯 현장 미션 (시민성 실천)</h2>' +
           '<div style="font-size:.84rem;color:var(--ink-dim);line-height:1.6;">현장 미션은 <b>좋은 시민이 되는 연습</b>이에요. 미션을 뽑아 실제로 실천하고, 그 장면을 <b>사진으로 찍어 인증</b>하면 마스터가 확인 후 <b>문화력 +' +
           FIELD_REWARD_CUL +
-          "</b>을 줍니다.<br>· 📸 모든 미션은 <b>사진 인증</b>이에요. 진심을 담아 실천하는 게 중요해요!<br>· ⏰ 현장 미션은 <b>한 턴에 한 번</b>만 할 수 있어요.<br>· ⚠️ 한 번 뽑은 미션은 <b>바꿀 수 없어요</b>(새로고침해도 그대로!).</div>" +
+          "</b>을 줍니다.<br>· 📸 모든 미션은 <b>사진 인증</b>이에요. 진심을 담아 실천하는 게 중요해요!<br>· ⏰ 현장 미션은 <b>한 턴에 한 번</b>만 할 수 있어요.<br>· 🔁 <b>한 번 완료한 미션은 다시 안 나와요</b> — 총 " +
+          totalMissions +
+          "종에 도전하세요!</div>" +
+          // 진행도 바
+          (ME.role !== "master"
+            ? '<div style="margin-top:.7rem;">' +
+              '<div style="display:flex;justify-content:space-between;font-size:.76rem;color:var(--ink-dim);margin-bottom:.25rem;"><span>시민 미션 달성도</span><span><b style="color:var(--good)">' +
+              doneCount +
+              "</b> / " +
+              totalMissions +
+              " 종</span></div>" +
+              '<div style="height:9px;background:rgba(0,0,0,.3);border-radius:99px;overflow:hidden;"><div style="height:100%;width:' +
+              Math.round((doneCount / totalMissions) * 100) +
+              '%;background:linear-gradient(90deg,#22c55e,#16a34a);border-radius:99px;transition:width .4s;"></div></div>' +
+              (allCleared
+                ? '<div style="font-size:.74rem;color:var(--good);margin-top:.3rem;">🏆 16종 시민 미션을 모두 완료했어요! 진정한 시민이에요!</div>'
+                : "") +
+              "</div>"
+            : "") +
           "</div>";
 
         html +=
