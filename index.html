@@ -3687,9 +3687,15 @@
         const conquered = isConquered(rawCell);
         const conqKey = conquered ? conquerorOf(rawCell) : "";
         const conqBld = conquered ? conqueredBuilding(rawCell) : "";
-        // 이 칸의 '실질 소유자' — 점령된 칸은 점령국, 아니면 원주인
-        const effectiveOwner = conquered ? conqKey : targetKey;
-        const isOwner = ME.role === "student" && ME.nation === effectiveOwner;
+        const emptyConquered = conquered && !conqBld; // 빈 점령지 (건물 없음)
+        // 이 칸의 '실질 소유자' — 점령국이 건물을 지었으면 점령국, 아니면 그리드 주인(원주인)
+        const effectiveOwner = conquered && conqBld ? conqKey : targetKey;
+        // 건설 권한자: 점령국이 지은 건물칸은 점령국만, 그 외엔 원주인.
+        //   ★ 빈 점령지는 점령국(개발) + 원주인(탈환) 둘 다 건설 가능
+        const isOwner =
+          ME.role === "student" &&
+          (ME.nation === effectiveOwner ||
+            (emptyConquered && (ME.nation === conqKey || ME.nation === targetKey)));
         // '점유' = 실제 건물이 있음 (일반 건물이든, 점령 후 점령국이 지은 건물이든)
         const occupied = !!((rawCell && !conquered) || (conquered && conqBld));
 
@@ -3772,11 +3778,29 @@
         }
 
         // empty cell → choose a building
-        const eco = n.eco;
-        const builtCount = (n.grid || []).filter((id) => id && BMAP[id]).length;
+        // ★ 건설 주체 결정: 빈 점령지면 '보는 사람'(원주인=탈환 / 점령국=개발),
+        //   일반 빈칸이면 그리드 주인. 비용·할인·잔액을 건설 주체 기준으로 계산.
+        const meNation = ME.role === "student" ? ME.nation : null;
+        const isReclaimer = emptyConquered && meNation === targetKey; // 원주인이 탈환하려 함
+        const isDeveloper = emptyConquered && meNation === conqKey; // 점령국이 개발하려 함
+        const buildKey = isMaster
+          ? targetKey
+          : isReclaimer
+            ? targetKey
+            : isDeveloper
+              ? conqKey
+              : targetKey;
+        const eco = isMaster
+          ? n.eco
+          : state.nations[buildKey]
+            ? state.nations[buildKey].eco
+            : n.eco;
+        const builtCount = ownedBuildingTotal
+          ? ownedBuildingTotal(buildKey)
+          : (n.grid || []).filter((id) => id && BMAP[id]).length;
         const addUpkeep = marginalUpkeep(builtCount); // 이 건물을 지으면 늘어나는 유지비
         let list = BUILDINGS.map((b) => {
-          const cost = isMaster ? 0 : effCost(targetKey, b);
+          const cost = isMaster ? 0 : effCost(buildKey, b);
           const afford = isMaster || eco >= cost;
           return (
             '<div class="glass" style="padding:.6rem;display:flex;align-items:center;gap:.6rem;' +
@@ -3818,24 +3842,34 @@
         }).join("");
 
         body.innerHTML =
-          (conquered
-            ? '<div style="background:rgba(225,29,72,.14);border:1px solid var(--bad);border-radius:10px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.85rem;line-height:1.5;">🚩 이 땅은 <b>' +
-              escapeHTML(
-                NATIONS[conquerorOf(rawCell)]
-                  ? NATIONS[conquerorOf(rawCell)].name
-                  : "적국",
-              ) +
-              "</b>에게 점령당했습니다.<br>건물을 새로 지으면 영토를 <b>탈환</b>합니다!</div>"
-            : "") +
+          (emptyConquered && isReclaimer
+            ? '<div style="background:rgba(43,182,115,.16);border:1px solid var(--good);border-radius:10px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.85rem;line-height:1.5;">🎉 <b>' +
+              escapeHTML(NATIONS[conqKey] ? NATIONS[conqKey].name : "적국") +
+              "</b>이(가) 점령했지만 <b>비워둔 내 땅</b>이에요!<br>여기에 건물을 지으면 <b>영토를 즉시 탈환</b>합니다! 🚩</div>"
+            : emptyConquered && isDeveloper
+              ? '<div style="background:rgba(245,197,24,.14);border:1px solid var(--c-capital);border-radius:10px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.85rem;line-height:1.5;">🚩 내가 점령한 <b>' +
+                escapeHTML(NATIONS[targetKey].name) +
+                "</b>의 땅이에요.<br>건물을 지으면 이 땅을 <b>개발</b>해 내 경제에 보탤 수 있어요!<br><span style=\"color:var(--warn);font-size:.78rem;\">⚠️ 단, 원주인이 먼저 건물을 지으면 땅을 뺏길 수 있어요!</span></div>"
+              : conquered
+                ? '<div style="background:rgba(225,29,72,.14);border:1px solid var(--bad);border-radius:10px;padding:.6rem .8rem;margin-bottom:.7rem;font-size:.85rem;line-height:1.5;">🚩 이 땅은 <b>' +
+                  escapeHTML(
+                    NATIONS[conquerorOf(rawCell)]
+                      ? NATIONS[conquerorOf(rawCell)].name
+                      : "적국",
+                  ) +
+                  "</b>에게 점령당했습니다.</div>"
+                : "") +
           '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.6rem;font-size:.85rem;">' +
           '<span>보유 자본: <b class="num" style="color:var(--c-capital)">💰' +
           fmt(eco) +
           "</b></span>" +
           (isMaster
             ? '<span class="badge" style="border-color:var(--c-un)">👑 마스터 무료 건설</span>'
-            : NATIONS[targetKey].buildDiscount
-              ? '<span class="badge" style="border-color:var(--c-capital)">자본 제국 -' +
-                Math.round(NATIONS[targetKey].buildDiscount * 100) +
+            : NATIONS[buildKey].buildDiscount
+              ? '<span class="badge" style="border-color:var(--c-capital)">' +
+                escapeHTML(NATIONS[buildKey].name) +
+                " -" +
+                Math.round(NATIONS[buildKey].buildDiscount * 100) +
                 "%</span>"
               : "") +
           "</div>" +
@@ -3872,14 +3906,23 @@
           return;
         }
 
-        // ★ '건설 주체'(builder) 결정 — 점령지에선 점령국이, 아니면 그리드 주인이 건설
+        // ★ 빈 점령지(@적국, 건물 없음)는 두 가지 경로로 건설 가능:
+        //   (1) 점령국이 건설 → 점령지 개발 (@점령국:건물)
+        //   (2) ★ 원주인(그리드 주인)이 건설 → 영토 탈환! 빈 점령지를 자기 일반 건물로 되찾음
+        //   즉, 상대가 땅만 뺏고 건물을 안 지었으면 원주인은 건물만 지어도 탈환 가능.
+        const isReclaimByBuild =
+          onConquered && !isMaster && ME.nation === targetKey; // 원주인이 자기 그리드의 빈 점령칸에 건설
+
+        // ★ '건설 주체'(builder) 결정
         const builderKey = isMaster
           ? targetKey // 마스터는 무료라 자원 차감 없음(아무 키나)
-          : onConquered
-            ? conqKey // 점령지 → 점령국이 건설
-            : targetKey; // 일반 → 원주인이 건설
+          : isReclaimByBuild
+            ? targetKey // 원주인 탈환 건설
+            : onConquered
+              ? conqKey // 점령국이 점령지 개발
+              : targetKey; // 일반 건설
 
-        // 학생은 자기 소유(또는 자기가 점령한) 칸에만 건설 가능
+        // 학생은 자기 소유(또는 자기가 점령한, 또는 자기 땅 탈환) 칸에만 건설 가능
         if (!isMaster && ME.nation !== builderKey) {
           toast("내 영토(또는 내가 점령한 땅)에만 건설할 수 있습니다.", "bad");
           return;
@@ -3938,8 +3981,15 @@
           }
           builder[k] = (builder[k] || 0) + b.e[k];
         }
-        // 그리드 기록: 점령지면 "@점령국:건물", 일반이면 그냥 건물 id
-        gridOwner.grid[idx] = onConquered ? "@" + conqKey + ":" + bId : bId;
+        // 그리드 기록:
+        //   · 원주인 탈환 건설 → 일반 건물(자기 땅 회복)
+        //   · 점령국 점령지 개발 → "@점령국:건물"
+        //   · 일반 건설 → 그냥 건물 id
+        gridOwner.grid[idx] = isReclaimByBuild
+          ? bId
+          : onConquered
+            ? "@" + conqKey + ":" + bId
+            : bId;
 
         // 건설 주체 스탯 클램프
         builder.hap = clamp(Math.round(builder.hap), MIN_HAP, 100);
@@ -3973,11 +4023,19 @@
         if (instantGpol) await applyGlobalPol(instantGpol);
         closeModal("buildModal");
         toast(
-          (onConquered ? "🚩 점령지 개발! " : "🏗️ ") +
+          (isReclaimByBuild
+            ? "🎉 영토 탈환! "
+            : onConquered
+              ? "🚩 점령지 개발! "
+              : "🏗️ ") +
             b.icon +
             " " +
             b.name +
-            (onConquered ? " 건설 완료! (점령한 땅)" : " 건설 완료!"),
+            (isReclaimByBuild
+              ? " 건설로 내 땅을 되찾았어요!"
+              : onConquered
+                ? " 건설 완료! (점령한 땅)"
+                : " 건설 완료!"),
           "good",
         );
       }
