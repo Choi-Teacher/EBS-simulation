@@ -4166,10 +4166,36 @@
           "</div>";
 
         const tN = state.nations[warTarget];
+        // (a) 적의 '자기 영토' 일반 건물
         const occupied = [];
         for (let i = CAPITAL_TILES; i < 16; i++) {
-          if (tN.grid && tN.grid[i] && BMAP[tN.grid[i]]) occupied.push(i);
+          if (tN.grid && tN.grid[i] && !isConquered(tN.grid[i]) && BMAP[tN.grid[i]])
+            occupied.push(i);
         }
+        // (b) ★ 이 적이 '점령해서 지은 건물' — 다른 나라(내 땅 포함) 그리드에 있는 @적:건물
+        //     이걸 공격하면 그 땅이 해방(원주인에게 복귀)된다. = 탈환 경로
+        const conqueredTargets = []; // {ownerKey, idx, bId}
+        NATION_ORDER.forEach((ownerKey) => {
+          if (ownerKey === warTarget) return;
+          const g = state.nations[ownerKey] && state.nations[ownerKey].grid;
+          if (!g) return;
+          for (let i = 0; i < 16; i++) {
+            const cell = g[i];
+            if (
+              isConquered(cell) &&
+              conquerorOf(cell) === warTarget &&
+              conqueredBuilding(cell) &&
+              BMAP[conqueredBuilding(cell)]
+            ) {
+              conqueredTargets.push({
+                ownerKey,
+                idx: i,
+                bId: conqueredBuilding(cell),
+              });
+            }
+          }
+        });
+        const totalTargets = occupied.length + conqueredTargets.length;
         // ★ 1턴 1침략 제한 — 이번 턴에 이 대상을 이미 쳤는지
         const curTurn = state.meta.turn || 1;
         const alreadyHit =
@@ -4191,7 +4217,7 @@
           '<div class="glass" style="padding:1rem;"><h3 style="margin:0 0 .6rem;">🎯 ' +
           escapeHTML(NATIONS[warTarget].name) +
           " 영토 (" +
-          occupied.length +
+          totalTargets +
           "개 건물)</h3>";
         if (defCount > 0) {
           html +=
@@ -4205,11 +4231,12 @@
         if (alreadyHit) {
           html +=
             '<div style="background:rgba(225,29,72,.14);border:1px solid var(--bad);border-radius:10px;padding:.7rem;color:var(--bad);font-size:.88rem;text-align:center;">⛔ 이번 턴에는 이미 이 나라를 침략했습니다.<br>다음 턴 정산 후 다시 공격할 수 있습니다.</div>';
-        } else if (!occupied.length) {
+        } else if (!totalTargets) {
           html +=
             '<div style="color:var(--ink-faint);font-size:.9rem;">공격할 건물이 없습니다. 적이 먼저 건설해야 합니다.</div>';
         } else {
           html += '<div style="display:grid;gap:.6rem;">';
+          // (a) 적의 일반 영토 건물
           occupied.forEach((i) => {
             const b = BMAP[tN.grid[i]];
             const cMil = isMaster ? 0 : attackCost(meKey, "mil", b);
@@ -4248,6 +4275,55 @@
               "</span></button>" +
               "</div>";
           });
+          // (b) ★ 이 적이 점령해서 지은 건물 (다른 나라 땅 위) — 공격하면 그 땅이 해방됨
+          conqueredTargets.forEach((t) => {
+            const b = BMAP[t.bId];
+            const cMil = isMaster ? 0 : attackCost(meKey, "mil", b);
+            const cCul = isMaster ? 0 : attackCost(meKey, "cul", b);
+            const canMil = isMaster || meN.mil >= cMil;
+            const canCul = isMaster || meN.cul >= cCul;
+            const onMyLand = t.ownerKey === meKey;
+            html +=
+              '<div class="glass" style="padding:.6rem;display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;border:1px solid ' +
+              (onMyLand ? "var(--good)" : "var(--c-steel)") +
+              ';">' +
+              '<div style="font-size:1.6rem;">' +
+              b.icon +
+              "</div>" +
+              '<div style="flex:1;min-width:120px;"><div class="jua" style="font-size:.92rem;">' +
+              escapeHTML(b.name) +
+              (b.defense ? ' <span style="color:var(--c-steel)">🛡️</span>' : "") +
+              "</div>" +
+              '<div style="font-size:.7rem;color:' +
+              (onMyLand ? "var(--good)" : "var(--ink-dim)") +
+              ';">🚩 ' +
+              (onMyLand
+                ? "<b>내 땅!</b> (" + (t.idx + 1) + "번) 탈환하기"
+                : escapeHTML(NATIONS[t.ownerKey].name) +
+                  "의 " +
+                  (t.idx + 1) +
+                  "번 땅 점령 중") +
+              "</div></div>" +
+              '<button class="btn btn-bad" ' +
+              (canMil ? "" : "disabled") +
+              ' style="padding:.35rem .6rem;font-size:.78rem;" onclick="doAttack(\'' +
+              t.ownerKey +
+              "'," +
+              t.idx +
+              ',\'mil\')">💣 폭격<br><span class="num" style="font-size:.7rem;">⚔️' +
+              (isMaster ? "무료" : fmt(cMil)) +
+              "</span></button>" +
+              '<button class="btn" ' +
+              (canCul ? "" : "disabled") +
+              ' style="padding:.35rem .6rem;font-size:.78rem;border-color:var(--c-wisdom)" onclick="doAttack(\'' +
+              t.ownerKey +
+              "'," +
+              t.idx +
+              ',\'cul\')">🎭 침투<br><span class="num" style="font-size:.7rem;">' +
+              (isMaster ? "무료" : fmt(cCul)) +
+              "</span></button>" +
+              "</div>";
+          });
           html += "</div>";
         }
         html += "</div>";
@@ -4262,9 +4338,21 @@
       async function doAttack(targetKey, idx, type) {
         const meKey = myNationKey();
         const isMaster = ME.role === "master";
+        // 자기 그리드 공격은 원칙적으로 금지하되, '내 땅에 있는 적의 점령 건물 탈환'은 허용
         if (targetKey === meKey) {
-          toast("자기 나라는 공격할 수 없습니다.", "bad");
-          return;
+          const myCell =
+            state.nations[meKey] && state.nations[meKey].grid
+              ? state.nations[meKey].grid[idx]
+              : "";
+          const isEnemyConquered =
+            isConquered(myCell) &&
+            conquerorOf(myCell) !== meKey &&
+            conqueredBuilding(myCell);
+          if (!isEnemyConquered) {
+            toast("자기 나라는 공격할 수 없습니다.", "bad");
+            return;
+          }
+          // 탈환 진행 (아래 로직에서 cellIsConquered 분기로 처리)
         }
         // ★ 수도 방어 룰 — 1~4번 칸(수도)은 누구도 점령할 수 없다
         if (idx < CAPITAL_TILES) {
@@ -4294,9 +4382,20 @@
           }
         }
 
-        const bid = tN.grid[idx];
-        if (!bid || isConquered(bid) || !BMAP[bid]) {
+        const rawCell = tN.grid[idx];
+        // 공격 대상 칸 분석: 점령지에 지어진 건물인지, 일반 건물인지
+        const cellIsConquered = isConquered(rawCell);
+        const cellConqKey = cellIsConquered ? conquerorOf(rawCell) : "";
+        const cellConqBld = cellIsConquered ? conqueredBuilding(rawCell) : "";
+        // 실제 공격 대상 건물 id
+        const bid = cellIsConquered ? cellConqBld : rawCell;
+        if (!bid || !BMAP[bid]) {
           toast("공격할 건물이 없는 영토입니다.", "bad");
+          return;
+        }
+        // 자기가 점령해서 자기가 지은 건물은 공격 불가 (자해 방지)
+        if (cellIsConquered && cellConqKey === meKey) {
+          toast("내가 점령한 땅의 내 건물은 공격할 수 없습니다.", "bad");
           return;
         }
         const b = BMAP[bid];
@@ -4318,14 +4417,21 @@
         for (let i = 0; i < 16; i++) {
           const gv = tN.grid[i];
           if (!gv) continue;
-          // 일반 방어 건물
-          if (!isConquered(gv) && BMAP[gv] && BMAP[gv].defense) {
-            defenseTiles.push(i);
-          }
-          // 점령지에 지어진 방어 건물
-          else if (isConquered(gv)) {
-            const cb = conqueredBuilding(gv);
-            if (cb && BMAP[cb] && BMAP[cb].defense) defenseTiles.push(i);
+          if (cellIsConquered) {
+            // 점령 건물을 공격할 때는 '같은 점령국'의 방어시설만 방어에 가담한다.
+            // (원주인의 방어시설은 탈환을 막지 않음)
+            if (isConquered(gv) && conquerorOf(gv) === cellConqKey) {
+              const cb = conqueredBuilding(gv);
+              if (cb && BMAP[cb] && BMAP[cb].defense) defenseTiles.push(i);
+            }
+          } else {
+            // 일반 건물 공격 — 그 나라(그리드 주인)의 방어시설이 방어
+            if (!isConquered(gv) && BMAP[gv] && BMAP[gv].defense) {
+              defenseTiles.push(i);
+            } else if (isConquered(gv)) {
+              const cb = conqueredBuilding(gv);
+              if (cb && BMAP[cb] && BMAP[cb].defense) defenseTiles.push(i);
+            }
           }
         }
         // 공격 대상이 방어시설 자신이 아니고, 방어시설이 남아있다면 → 방어막이 먼저 막는다
@@ -4391,8 +4497,58 @@
         const loot = Math.round(cost * 0.4);
         aN.eco = (aN.eco || 0) + loot;
 
-        // ★ 영토 점령 — 건물을 부수고 그 땅을 공격국이 차지한다 ("@공격국")
-        tN.grid[idx] = "@" + meKey;
+        // ★ 점령 결과 분기
+        let resultMsg, resultToast;
+        if (cellIsConquered) {
+          // 이 칸은 'cellConqKey'가 점령해 지은 건물이었다 → 그 건물을 파괴
+          if (targetKey === meKey) {
+            // (1) 내 땅을 되찾는 '탈환' — 내 땅의 적 건물 파괴 후 내 빈 땅으로 복귀
+            tN.grid[idx] = "";
+            resultMsg =
+              "🚩 " +
+              NATIONS[meKey].name +
+              "이(가) 자국 영토에 있던 " +
+              (NATIONS[cellConqKey] ? NATIONS[cellConqKey].name : "적") +
+              "의 " +
+              b.name +
+              "을(를) 파괴하고 영토를 <b>탈환</b>했습니다! 🎉";
+            resultToast =
+              "🎉 영토 탈환 성공! " +
+              b.icon +
+              " " +
+              b.name +
+              " 파괴 · 전리품 💰" +
+              fmt(loot);
+          } else {
+            // (2) 제3국이 다른 점령국의 건물을 파괴 → 그 땅을 새로 점령(@나)
+            tN.grid[idx] = "@" + meKey;
+            resultMsg =
+              "⚔️ " +
+              NATIONS[meKey].name +
+              "이(가) " +
+              (NATIONS[cellConqKey] ? NATIONS[cellConqKey].name : "적") +
+              "이 점령했던 " +
+              NATIONS[targetKey].name +
+              "의 땅을 빼앗아 새로 점령했습니다! 🚩";
+            resultToast =
+              "🚩 " + b.icon + " " + b.name + " 파괴 후 영토 점령! 전리품 💰" + fmt(loot);
+          }
+        } else {
+          // (3) 일반 점령 — 건물을 부수고 그 땅을 공격국이 차지
+          tN.grid[idx] = "@" + meKey;
+          resultMsg =
+            "⚔️ " +
+            NATIONS[meKey].name +
+            "이(가) " +
+            NATIONS[targetKey].name +
+            "의 " +
+            b.name +
+            "을(를) " +
+            (type === "mil" ? "폭격" : "문화 침투") +
+            "하고 그 영토를 점령했습니다! 🚩";
+          resultToast =
+            "🚩 " + b.icon + " " + b.name + " 파괴 후 영토 점령! 전리품 💰" + fmt(loot);
+        }
         tN.hap = clamp(Math.round((tN.hap || 0) - 3), MIN_HAP, 100);
 
         // 침략 기록 (1턴 1침략 제한용)
@@ -4417,27 +4573,10 @@
         await Data.push("chat", {
           user: isMaster ? "MCU" : ME.user,
           nation: meKey,
-          text:
-            "⚔️ " +
-            NATIONS[meKey].name +
-            "이(가) " +
-            NATIONS[targetKey].name +
-            "의 " +
-            b.name +
-            "을(를) " +
-            (type === "mil" ? "폭격" : "문화 침투") +
-            "하고 그 영토를 점령했습니다! 🚩",
+          text: resultMsg,
           ts: Date.now(),
         });
-        toast(
-          "🚩 " +
-            b.icon +
-            " " +
-            b.name +
-            " 파괴 후 영토 점령! 전리품 💰" +
-            fmt(loot),
-          "good",
-        );
+        toast(resultToast, "good");
       }
       window.doAttack = doAttack;
 
