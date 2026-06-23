@@ -2516,9 +2516,26 @@
           $("#hCul").textContent = fmt(n.cul);
           const polEl = $("#hPol");
           const gp = getGlobalPol(); // ★ 지구 공동 오염도 (모든 나라 동일)
+          const polPen = pollutionPenalty(gp);
           polEl.textContent = gp;
-          polEl.style.color =
-            gp >= 100 ? "var(--bad)" : gp >= 80 ? "var(--warn)" : "var(--ink)";
+          polEl.style.color = polPen.tier >= 1 ? polPen.color : "var(--ink)";
+          polEl.style.fontWeight = polPen.tier >= 3 ? "bold" : "normal";
+          // 부모 칩에 단계 라벨 툴팁
+          const polChip = polEl.closest(".chip");
+          if (polChip)
+            polChip.title =
+              "지구 오염도 " +
+              gp +
+              " · " +
+              polPen.label +
+              (polPen.tier >= 1
+                ? " (지지율 -" +
+                  polPen.hapDrop +
+                  (polPen.taxCut ? ", 세금 -" + Math.round(polPen.taxCut * 100) + "%" : "") +
+                  (polPen.popLoss ? ", 인구 -" + Math.round(polPen.popLoss * 100) + "%" : "") +
+                  (polPen.ecoHit ? ", 자본 -" + polPen.ecoHit : "") +
+                  "/턴)"
+                : "");
         }
 
         // 환경 기부 버튼 — 비용 표시 + 잔액 부족 시 비활성화
@@ -2625,9 +2642,14 @@
               "· 건설된 모든 건물의 <b>턴당 생산</b> 추가<br>" +
               "· <b>유지비(누진세)</b> — 건물 개수에 따라 차감 (3개↓ 무료 · 4개 -15G · 5개 -30G · 6개 -55G … 급증)<br>" +
               "· 인구와 지지율에 비례해 <b>세금(자본)</b> 징수<br>" +
-              "· <b>순수입 = 건물 생산 + 세금 − 유지비</b><br>" +
-              "· 🌍 <b>지구 오염도 80↑</b> 이면 매 턴 <b>모든 나라</b> 지지율 -5<br>" +
-              "· 🌍 <b>지구 오염도 100↑</b> 이면 <b>전 세계 대재앙!</b> 모든 나라 세금이 절반으로 반토막<br>" +
+              "· <b>순수입 = 건물 생산 + 세금 − 유지비 − 오염 피해</b><br>" +
+              "· 🌍 <b>지구 오염도 단계별 패널티</b> (단계가 오를수록 급격히 심해져요!):<br>" +
+              "&nbsp;&nbsp;<span style='color:#eab308'>● 60↑ 오염 경고</span> — 매 턴 지지율 -3<br>" +
+              "&nbsp;&nbsp;<span style='color:#f5a623'>● 80↑ 환경 위기</span> — 지지율 -6, 세금 -25%<br>" +
+              "&nbsp;&nbsp;<span style='color:#e5484d'>● 100↑ 기후 재앙</span> — 지지율 -10, 세금 -50%, 인구 -2%<br>" +
+              "&nbsp;&nbsp;<span style='color:#b91c1c'>● 150↑ 행성 대재앙</span> — 지지율 -16, 세금 -70%, 인구 -5%, <b>자본 -500</b><br>" +
+              "&nbsp;&nbsp;<span style='color:#7c1d1d;font-weight:bold'>● 200↑ 대멸종 위기</span> — 지지율 -25, 세금 -85%, 인구 -8%, <b>자본 -1,200</b><br>" +
+              "&nbsp;&nbsp;<span style='color:var(--ink-dim);font-size:.85rem;'>※ 고오염 구간엔 <b>자본을 직접 깎아</b> 돈 많은 나라도 전쟁만 하다간 파산해요! 환경 기부·정화탑으로 함께 관리하세요.</span><br>" +
               "· 지지율은 <b>최소 15%</b> 보장 (나라가 망해도 최소 세금은 들어옴)<br>" +
               "· 인구는 최소 <b class='num'>1,000</b>명 보장 (파산 방지)",
           ],
@@ -2780,6 +2802,73 @@
         const next = Math.max(0, Math.round(cur + amount));
         await Data.update("meta", { globalPol: next });
       }
+
+      /* ★ 지구 오염도 단계별 패널티 (세분화 + 강화)
+         단계가 오를수록 지지율 하락 / 세금 감소 / 인구 감소 / 자본 직접 피해가 급격히 커진다.
+         부자 나라도 무시 못 하도록 고오염 구간에서 매 턴 '자본 직접 피해'를 가한다. */
+      function pollutionPenalty(pol) {
+        // 반환: { tier, label, hapDrop, taxCut(0~1), popLoss(0~1), ecoHit, color }
+        if (pol >= 200)
+          return {
+            tier: 5,
+            label: "대멸종 위기",
+            hapDrop: 25,
+            taxCut: 0.85,
+            popLoss: 0.08,
+            ecoHit: 1200,
+            color: "#7c1d1d",
+          };
+        if (pol >= 150)
+          return {
+            tier: 4,
+            label: "행성 대재앙",
+            hapDrop: 16,
+            taxCut: 0.7,
+            popLoss: 0.05,
+            ecoHit: 500,
+            color: "#b91c1c",
+          };
+        if (pol >= 100)
+          return {
+            tier: 3,
+            label: "기후 재앙",
+            hapDrop: 10,
+            taxCut: 0.5,
+            popLoss: 0.02,
+            ecoHit: 0,
+            color: "#e5484d",
+          };
+        if (pol >= 80)
+          return {
+            tier: 2,
+            label: "환경 위기",
+            hapDrop: 6,
+            taxCut: 0.25,
+            popLoss: 0,
+            ecoHit: 0,
+            color: "#f5a623",
+          };
+        if (pol >= 60)
+          return {
+            tier: 1,
+            label: "오염 경고",
+            hapDrop: 3,
+            taxCut: 0,
+            popLoss: 0,
+            ecoHit: 0,
+            color: "#eab308",
+          };
+        return {
+          tier: 0,
+          label: "안정",
+          hapDrop: 0,
+          taxCut: 0,
+          popLoss: 0,
+          ecoHit: 0,
+          color: "#22c55e",
+        };
+      }
+      window.pollutionPenalty = pollutionPenalty;
 
       async function voteAgenda(choice) {
         const aid = state.meta.agenda;
@@ -4952,16 +5041,18 @@
 
           /* 3) 세금 징수 : 인구 × 지지율에 비례 */
           let tax = Math.round((n.pop / 1000) * (n.hap / 100) * 60);
-          /* 4) 지구 오염도 100 초과 → 전 세계 대재앙! 모든 나라 세금 반토막 */
+          /* ★ 4) 지구 오염도 단계별 패널티 (세분화 + 강화)
+             60↑ 경고 / 80↑ 위기 / 100↑ 재앙 / 150↑ 대재앙 / 200↑ 멸종위기.
+             단계가 오를수록 세금↓·지지율↓·인구↓에 더해 '자본 직접 피해'까지 가해
+             돈 많은 나라도 전쟁만 하다간 파산하도록 한다. */
           const worldPol = getGlobalPol();
-          let disaster = false;
-          if (worldPol > 100) {
-            tax = Math.round(tax * 0.5);
-            disaster = true;
-          }
-          /* ★ 세금 수입 - 건물 유지비(누진세) + 국가 특성 보너스 = 순수입 */
+          const pen = pollutionPenalty(worldPol);
+          const disaster = pen.tier >= 3; // 재앙(100↑) 이상이면 대재앙 표기
+          // 세금 감소
+          if (pen.taxCut > 0) tax = Math.round(tax * (1 - pen.taxCut));
+          /* ★ 세금 수입 - 건물 유지비(누진세) + 국가 특성 보너스 - 오염 직접피해 = 순수입 */
           const tradeBonus = trait.tradeBonus || 0; // 자본 제국 +150 (무역 보조금)
-          const rawEco = (n.eco || 0) + tax - upkeep + tradeBonus;
+          const rawEco = (n.eco || 0) + tax - upkeep + tradeBonus - pen.ecoHit;
           /* ★ 파산 페널티 : 유지비를 못 내 적자가 나면 '국가 부도' → 지지율 -15% 폭락 */
           let bankrupt = false;
           if (rawEco < 0) {
@@ -4970,10 +5061,9 @@
           }
           n.eco = rawEco; // 아래에서 0 하한 클램프
 
-          /* 5) 지구 오염도 80 이상 → 매 턴 전 나라 지지율 -5 */
-          if (worldPol >= 80) {
-            n.hap = (n.hap || 0) - 5;
-          }
+          /* ★ 5) 오염 단계별 지지율·인구 직접 피해 */
+          if (pen.hapDrop) n.hap = (n.hap || 0) - pen.hapDrop;
+          if (pen.popLoss) n.pop = n.pop - n.pop * pen.popLoss;
 
           /* 6) 안전 클램프 + 최소 인구 1,000 보장 + 지지율 15% 하한선(soft-lock 방지) */
           n.pop = Math.max(1000, Math.round(n.pop));
@@ -4994,7 +5084,8 @@
 
           report.push(
             NATIONS[key].name +
-              (disaster ? " ⚠️대재앙" : "") +
+              (pen.tier >= 1 ? " 🌍" + pen.label : "") +
+              (pen.ecoHit ? "(자본-" + fmt(pen.ecoHit) + ")" : "") +
               (bankrupt ? " 💀국가부도(지지율-15)" : "") +
               " 세금+" +
               fmt(tax) +
@@ -5002,8 +5093,8 @@
               fmt(upkeep) +
               (tradeBonus ? " 무역+" + fmt(tradeBonus) : "") +
               " (순익 " +
-              (tax - upkeep + tradeBonus >= 0 ? "+" : "") +
-              fmt(tax - upkeep + tradeBonus) +
+              (tax - upkeep + tradeBonus - pen.ecoHit >= 0 ? "+" : "") +
+              fmt(tax - upkeep + tradeBonus - pen.ecoHit) +
               "💰)",
           );
         }
