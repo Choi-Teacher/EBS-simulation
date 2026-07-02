@@ -2066,6 +2066,7 @@
           mil: b.mil,
           cul: b.cul,
           grid: Array(16).fill(""), // ★ null 금지 — Firebase 삭제 버그 방지
+          envGiven: 0, // ★ 누적 환경 기부액 (명예의 전당 '지구를 지킨 국가' 시상용)
           constitution: "우리 " + NATIONS[key].name + "은(는) 자유와 번영을 추구한다.",
           lastVote: "", // "agendaId:choice"
           attacks: {}, // {targetKey: turnNumber} — 1턴 1침략 제한 추적
@@ -3121,6 +3122,31 @@
             );
           })
           .join("");
+        // ★ 지구를 지킨 국가 — 환경 기부 누적액 1위 (기부가 한 번이라도 있어야 시상)
+        let envBest = null,
+          envBestV = 0;
+        for (const k of NATION_ORDER) {
+          const v = (state.nations[k] && state.nations[k].envGiven) || 0;
+          if (v > envBestV) {
+            envBestV = v;
+            envBest = k;
+          }
+        }
+        const envRow = envBest
+          ? '<div style="display:flex;align-items:center;gap:.6rem;background:rgba(34,197,94,.14);border:1px solid var(--good);border-radius:10px;padding:.55rem .7rem;margin-top:.5rem;">' +
+            '<div style="font-size:1.3rem;">🌱</div>' +
+            '<div style="flex:1;"><div style="font-size:.8rem;color:var(--ink-dim);">지구를 지킨 국가 (환경 기부 최다 ' +
+            fmt(envBestV) +
+            'G)</div>' +
+            '<div style="font-weight:bold;"><span class="flag" style="background:' +
+            NATIONS[envBest].color +
+            '"></span>' +
+            escapeHTML(NATIONS[envBest].name) +
+            "</div></div></div>"
+          : '<div style="display:flex;align-items:center;gap:.6rem;background:rgba(0,0,0,.28);border-radius:10px;padding:.55rem .7rem;margin-top:.5rem;">' +
+            '<div style="font-size:1.3rem;">🌱</div>' +
+            '<div style="flex:1;"><div style="font-size:.8rem;color:var(--ink-dim);">지구를 지킨 국가 (환경 기부 최다)</div>' +
+            '<div style="font-weight:bold;color:var(--ink-dim);">환경 기부를 한 나라가 없습니다 😢</div></div></div>';
         body.innerHTML =
           '<div style="text-align:center;">' +
           '<div style="font-size:2.8rem;">🌍</div>' +
@@ -3151,6 +3177,7 @@
           '<div style="margin-top:.6rem;">' +
           '<div style="font-weight:bold;font-size:.95rem;margin-bottom:.2rem;">🏅 명예의 전당</div>' +
           awardRows +
+          envRow +
           "</div>" +
           '<div style="font-size:.8rem;color:var(--ink-faint);text-align:center;margin:.9rem 0 .2rem;">모든 국가가 위대한 문명을 일구었습니다. 수고했습니다! 🎉</div>' +
           '<button class="btn btn-lg btn-accent" style="width:100%;margin-top:.4rem;" onclick="closeEndingModal()">결과 확인</button>' +
@@ -3998,6 +4025,11 @@
       window.openBuildModal = openBuildModal;
 
       async function doBuild(targetKey, idx, bId) {
+        // ★ 시뮬레이션 종료 후에는 학생의 건설을 막는다 (마스터는 예외)
+        if (gameEnded() && !(ME && ME.role === "master")) {
+          toast("🏁 시뮬레이션이 종료되었습니다. 결과는 명예의 전당에서 확인하세요!", "warn");
+          return;
+        }
         const b = BMAP[bId];
         if (!b) {
           toast("알 수 없는 건물입니다.", "bad");
@@ -4178,6 +4210,11 @@
       const SELL_REFUND_RATE = 0.3; // 건물 판매 시 건설비의 30%만 환급 (헐값)
       async function doDemolish(targetKey, idx) {
         const isMaster = ME.role === "master";
+        // ★ 시뮬레이션 종료 후에는 학생의 철거를 막는다 (마스터는 예외)
+        if (gameEnded() && !isMaster) {
+          toast("🏁 시뮬레이션이 종료되었습니다. 결과는 명예의 전당에서 확인하세요!", "warn");
+          return;
+        }
         if (!state.nations || !state.nations[targetKey]) return;
         const gridOwner = clone(state.nations[targetKey]);
         const cell = gridOwner.grid[idx];
@@ -4540,6 +4577,11 @@
       window.setWarTarget = setWarTarget;
 
       async function doAttack(targetKey, idx, type) {
+        // ★ 시뮬레이션 종료 후에는 학생의 침략을 막는다 (마스터는 예외)
+        if (gameEnded() && !(ME && ME.role === "master")) {
+          toast("🏁 시뮬레이션이 종료되었습니다. 결과는 명예의 전당에서 확인하세요!", "warn");
+          return;
+        }
         const meKey = myNationKey();
         const isMaster = ME.role === "master";
         // 자기 그리드 공격은 원칙적으로 금지하되, '내 땅에 있는 적의 점령 건물 탈환'은 허용
@@ -4845,6 +4887,10 @@
 
       async function donateEnv() {
         const key = myNationKey();
+        if (gameEnded()) {
+          toast("🏁 시뮬레이션이 종료되었습니다. 결과는 명예의 전당에서 확인하세요!", "warn");
+          return;
+        }
         if (!state.nations || !state.nations[key]) {
           toast("국가 데이터가 준비되지 않았습니다.", "bad");
           return;
@@ -4876,8 +4922,11 @@
           toast("골드가 부족합니다. (필요: " + fmt(cost) + "G)", "bad");
           return;
         }
+        // ★ 누적 기부액 기록 — 시뮬레이션 종료 시 '지구를 지킨 국가' 시상에 사용
+        const liveGiven = (state.nations[key] && state.nations[key].envGiven) || 0;
         await Data.update("nations/" + key, {
           eco: Math.max(0, Math.round(liveEco - cost)),
+          envGiven: Math.round(liveGiven + cost),
         });
         await applyGlobalPol(-12); // ★ 지구 공동 오염도를 함께 낮춤
         const gpNow = getGlobalPol();
@@ -4905,6 +4954,10 @@
 
       async function sendAid() {
         const key = myNationKey();
+        if (gameEnded()) {
+          toast("🏁 시뮬레이션이 종료되었습니다. 결과는 명예의 전당에서 확인하세요!", "warn");
+          return;
+        }
         const tgt = $("#aidTarget") && $("#aidTarget").value;
         const amt = Math.round(Number($("#aidAmount") && $("#aidAmount").value) || 0);
         if (!tgt || !NATIONS[tgt]) {
@@ -5037,9 +5090,21 @@
    ========================================================================== */
 
       /* ----- 턴 종료 정산 : 모든 국가를 한 번에 계산해 persist ----- */
+      function gameEnded() {
+        return !!(state.meta && state.meta.ended);
+      }
       async function settleTurn() {
         if (!state.nations) {
           toast("세계 데이터가 없습니다.", "bad");
+          return;
+        }
+        // ★ 15턴 정산이 끝난 뒤에는 더 이상 턴이 진행되지 않는다 (16턴 진행 버그 수정)
+        if (gameEnded()) {
+          toast(
+            "🏁 이미 시뮬레이션이 종료되었습니다(15턴 완료). 새 게임은 MCU의 '세계 리셋(빅뱅)'으로 시작하세요.",
+            "warn",
+          );
+          openEndingModal();
           return;
         }
 
@@ -5184,7 +5249,8 @@
         const ph = computePhase().phase;
         const ended = settledTurn >= 15; // ★ 15턴 정산이 끝나면 시뮬레이션 종료
         await Data.update("meta", {
-          turn: newTurn,
+          // ★ 마지막(15턴) 정산 후에는 턴을 16으로 올리지 않고 15에서 멈춘다
+          turn: ended ? settledTurn : newTurn,
           phase: ph,
           agenda: "",
           ended: ended,
@@ -5193,7 +5259,9 @@
         await Data.push("chat", {
           user: "MCU 👑",
           nation: "un",
-          text: "⏳ Turn " + newTurn + " 정산 완료 — " + report.join(" / "),
+          text: ended
+            ? "🏁 15턴 대장정 완료! 시뮬레이션이 종료되었습니다 — " + report.join(" / ")
+            : "⏳ Turn " + newTurn + " 정산 완료 — " + report.join(" / "),
           ts: Date.now(),
         });
         if (ended) {
@@ -5813,6 +5881,10 @@
       /* 카드 뽑기 (랜덤) — 한 턴에 1번만! */
       async function drawCard() {
         const key = myNationKey();
+        if (gameEnded()) {
+          toast("🏁 시뮬레이션이 종료되었습니다. 결과는 명예의 전당에서 확인하세요!", "warn");
+          return;
+        }
         if (ME.role === "master") {
           toast("마스터는 카드를 뽑지 않습니다. 결재만 합니다.", "warn");
           return;
