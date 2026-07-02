@@ -2107,6 +2107,24 @@
         return state.nations ? state.nations[myNationKey()] : null;
       }
 
+      /* ★ 그리드 정규화 — Firebase가 배열을 객체({0:"farm",5:"@steel"}) 형태로
+         돌려주는 경우가 있어, 어떤 형태로 와도 항상 '길이 16짜리 배열'로 맞춘다.
+         (예전 코드는 배열이 아니면 통째로 빈 grid로 리셋해 → 건물이 전부 증발했음) */
+      function normalizeGrid(g) {
+        const arr = Array(16).fill("");
+        if (Array.isArray(g)) {
+          for (let i = 0; i < 16; i++) {
+            if (typeof g[i] === "string") arr[i] = g[i];
+          }
+        } else if (g && typeof g === "object") {
+          for (const k in g) {
+            const i = parseInt(k, 10);
+            if (i >= 0 && i < 16 && typeof g[k] === "string") arr[i] = g[k];
+          }
+        }
+        return arr;
+      }
+
       /* ---------- DB LISTENERS ---------- */
       let _listenersAttached = false;
       function attachListeners() {
@@ -2127,7 +2145,14 @@
           maybeShowEnding();
         });
         Data.onValue("nations", (s) => {
-          state.nations = s.val() || null;
+          const v = s.val() || null;
+          // ★ 모든 나라의 grid를 항상 16칸 배열로 정규화 (건물 증발/렌더 오류 방지)
+          if (v) {
+            for (const k in v) {
+              if (v[k]) v[k].grid = normalizeGrid(v[k].grid);
+            }
+          }
+          state.nations = v;
           renderAll();
           if (pendingQRAgenda && ME && state.nations) handleQRAgenda();
         });
@@ -2339,7 +2364,10 @@
         // ③ 건설 가능 여부: 빈 땅이 있고 가장 싼 건물을 살 돈이 있는지
         let canBuild = false;
         if (n && Array.isArray(n.grid)) {
-          const hasEmpty = n.grid.some((g, i) => !g);
+          // ★ 빈 칸 + '건물 없는 빈 점령지'(건설로 탈환 가능)도 건설 가능 칸으로 인정
+          const hasEmpty = n.grid.some(
+            (g) => !g || (isConquered(g) && !conqueredBuilding(g)),
+          );
           let cheapest = Infinity;
           BUILDINGS.forEach((b) => {
             const c = effCost(key, b);
@@ -3981,9 +4009,8 @@
         }
         const isMaster = ME && ME.role === "master";
         const gridOwner = clone(state.nations[targetKey]); // 칸이 속한 나라(그리드 주인)
-        if (!Array.isArray(gridOwner.grid) || gridOwner.grid.length !== 16) {
-          gridOwner.grid = Array(16).fill("");
-        }
+        // ★ 절대 grid를 통째로 비우지 않는다 — 형태만 16칸 배열로 정규화 (건물 증발 방지)
+        gridOwner.grid = normalizeGrid(gridOwner.grid);
         const cell = gridOwner.grid[idx];
         const onConquered = isConquered(cell);
         const conqKey = onConquered ? conquerorOf(cell) : "";
@@ -4017,7 +4044,7 @@
           return;
         }
 
-        const builder = isMaster ? gridOwner : clone(state.nations[builderKey]);
+        let builder = isMaster ? gridOwner : clone(state.nations[builderKey]);
 
         // ★ 비용 계산 (건설 주체의 국가 할인 적용)
         const cost = isMaster ? 0 : effCost(builderKey, b);
@@ -4058,6 +4085,20 @@
             toast("자본이 부족합니다.", "bad");
             return;
           }
+          // ★ 확인창이 떠 있는 동안 이 칸이 침략·건설 등으로 바뀌었는지 재확인
+          const liveGrid = normalizeGrid(
+            state.nations[targetKey] && state.nations[targetKey].grid,
+          );
+          if (liveGrid[idx] !== cell) {
+            toast(
+              "방금 이 칸의 상태가 바뀌었습니다. 지도를 확인하고 다시 시도하세요.",
+              "bad",
+            );
+            return;
+          }
+          // ★ 확인창 동안 턴 정산·원조 등으로 스탯이 변했을 수 있으므로
+          //   '결제 확정 시점'의 최신 데이터로 다시 계산한다 (오래된 값 덮어쓰기 방지)
+          builder = clone(state.nations[builderKey]);
         }
 
         // 자원 차감 + 즉시효과는 '건설 주체'에게 적용
@@ -4087,8 +4128,12 @@
         builder.mil = Math.max(0, Math.round(builder.mil));
         builder.cul = Math.max(0, Math.round(builder.cul));
 
-        // 그리드 주인의 grid 저장
-        await Data.update("nations/" + targetKey, { grid: gridOwner.grid });
+        // ★ 그리드 주인의 '해당 칸만' 저장 — 예전처럼 grid 16칸 전체를 덮어쓰면,
+        //   다른 학생이 방금 지은 건물이 이 기기의 오래된 데이터로 지워지는
+        //   '건물 증발' 버그가 생긴다. (여러 태블릿이 동시에 플레이하는 교실 필수 수정)
+        const cellWrite = {};
+        cellWrite["grid/" + idx] = gridOwner.grid[idx];
+        await Data.update("nations/" + targetKey, cellWrite);
         // 건설 주체가 그리드 주인과 다르면(점령지 건설) 건설 주체 스탯도 저장
         if (builderKey !== targetKey || isMaster) {
           if (!isMaster) {
@@ -4155,15 +4200,17 @@
         if (isMaster) {
           // 마스터 강제 폭파 — 환불 없음. 점령지면 빈 점령칸(@점령국)으로 되돌림
           if (!confirm("💣 이 건물을 강제 폭파할까요? (자원 환불 없음)")) return;
-          gridOwner.grid[idx] = onConquered ? "@" + conqKey : "";
-          await Data.update("nations/" + targetKey, { grid: gridOwner.grid });
+          // ★ 해당 칸만 저장 (grid 전체 덮어쓰기 → 건물 증발 버그 방지)
+          const mCellWrite = {};
+          mCellWrite["grid/" + idx] = onConquered ? "@" + conqKey : "";
+          await Data.update("nations/" + targetKey, mCellWrite);
           closeModal("buildModal");
           toast("💣 건물을 강제 폭파했습니다.", "good");
           return;
         }
 
         // 학생(소유자) 판매 — 건설비의 30%만 환급 + ★ 건설 시 받은 즉시효과 회수(꼼수 차단)
-        const owner = clone(state.nations[ownerKey]);
+        let owner = clone(state.nations[ownerKey]);
         const refund = Math.round(effCost(ownerKey, b) * SELL_REFUND_RATE);
         const undo = [];
         let undoGpol = 0;
@@ -4196,13 +4243,21 @@
             undoNote,
         );
         if (!ok1) return;
+        // ★ 확인창이 떠 있는 동안 이 칸이 바뀌었는지 재확인 (동시 조작 충돌 방지)
+        const liveGridD = normalizeGrid(
+          state.nations[targetKey] && state.nations[targetKey].grid,
+        );
+        if (liveGridD[idx] !== cell) {
+          toast("방금 이 칸의 상태가 바뀌었습니다. 지도를 확인하고 다시 시도하세요.", "bad");
+          return;
+        }
+        // ★ 확인창 동안 스탯이 변했을 수 있으므로 최신 데이터로 다시 계산
+        owner = clone(state.nations[ownerKey]);
         // 즉시효과 되돌리기 (소유자에게)
         for (const k in b.e) {
           if (k === "pol" || k === "gpol") continue;
           owner[k] = (owner[k] || 0) - b.e[k];
         }
-        // 그리드: 점령지면 빈 점령칸(@점령국) 유지, 일반이면 완전히 비움
-        gridOwner.grid[idx] = onConquered ? "@" + conqKey : "";
         owner.eco = (owner.eco || 0) + refund;
         // 안전 클램프
         owner.hap = clamp(Math.round(owner.hap || 0), MIN_HAP, 100);
@@ -4210,8 +4265,10 @@
         owner.eco = Math.max(0, Math.round(owner.eco));
         owner.mil = Math.max(0, Math.round(owner.mil || 0));
         owner.cul = Math.max(0, Math.round(owner.cul || 0));
-        // 그리드 주인의 grid 저장
-        await Data.update("nations/" + targetKey, { grid: gridOwner.grid });
+        // ★ 그리드: 해당 칸만 저장 — 점령지면 빈 점령칸(@점령국) 유지, 일반이면 완전히 비움
+        const dCellWrite = {};
+        dCellWrite["grid/" + idx] = onConquered ? "@" + conqKey : "";
+        await Data.update("nations/" + targetKey, dCellWrite);
         // 소유자 스탯 저장
         await Data.update("nations/" + ownerKey, {
           eco: owner.eco,
@@ -4512,6 +4569,7 @@
           return;
         }
         const tN = clone(state.nations[targetKey]);
+        tN.grid = normalizeGrid(tN.grid); // ★ 항상 16칸 배열 보장
         const aN = clone(state.nations[meKey]);
         const curTurn = state.meta.turn || 1;
 
@@ -4610,10 +4668,11 @@
             eco: aN.eco,
             attacks: aN.attacks || {},
           });
-          await Data.update("nations/" + targetKey, {
-            grid: tN.grid,
-            hap: tN.hap,
-          });
+          // ★ 파괴된 방어시설 '한 칸만' 저장 — grid 전체를 덮어쓰면 다른 기기에서
+          //   방금 지어진 건물(예: 수도의 새 건물)이 오래된 데이터로 지워진다!
+          const shieldWrite = { hap: tN.hap };
+          shieldWrite["grid/" + shieldIdx] = tN.grid[shieldIdx];
+          await Data.update("nations/" + targetKey, shieldWrite);
           await Data.push("chat", {
             user: isMaster ? "MCU" : ME.user,
             nation: meKey,
@@ -4658,7 +4717,7 @@
               (NATIONS[cellConqKey] ? NATIONS[cellConqKey].name : "적") +
               "의 " +
               b.name +
-              "을(를) 파괴하고 영토를 <b>탈환</b>했습니다! 🎉";
+              "을(를) 파괴하고 영토를 탈환했습니다! 🎉";
             resultToast =
               "🎉 영토 탈환 성공! " +
               b.icon +
@@ -4715,7 +4774,10 @@
           eco: aN.eco,
           attacks: aN.attacks || {},
         });
-        await Data.update("nations/" + targetKey, { grid: tN.grid, hap: tN.hap });
+        // ★ 점령된 '한 칸만' 저장 — grid 16칸 전체 덮어쓰기가 '건물 증발' 버그의 원인
+        const conquerWrite = { hap: tN.hap };
+        conquerWrite["grid/" + idx] = tN.grid[idx];
+        await Data.update("nations/" + targetKey, conquerWrite);
 
         await Data.push("chat", {
           user: isMaster ? "MCU" : ME.user,
@@ -4808,8 +4870,15 @@
             "G)\n기부를 진행할까요?",
         );
         if (!ok2) return;
-        n.eco -= cost;
-        await Data.update("nations/" + key, { eco: Math.round(n.eco) });
+        // ★ 확인창이 떠 있는 동안 잔액이 변했을 수 있으므로 최신 값으로 재확인·차감
+        const liveEco = (state.nations[key] && state.nations[key].eco) || 0;
+        if (liveEco < cost) {
+          toast("골드가 부족합니다. (필요: " + fmt(cost) + "G)", "bad");
+          return;
+        }
+        await Data.update("nations/" + key, {
+          eco: Math.max(0, Math.round(liveEco - cost)),
+        });
         await applyGlobalPol(-12); // ★ 지구 공동 오염도를 함께 낮춤
         const gpNow = getGlobalPol();
         // ★ 영웅 알림 — 전 세계 채팅에 크게 공지해 다른 조의 동참을 유도
@@ -5005,7 +5074,7 @@
         }
 
         /* ★ 지구 오염도 누적 — 모든 나라의 모든 건물 오염을 합산해 '지구 전체'에 더한다.
-           단, 너무 빨리 오르지 않도록 0.35 계수를 적용(천천히 차오르게). */
+           (상승 속도를 조절하려면 아래 계수를 낮추세요. 현재 1.0 = 그대로 반영) */
         const POL_RISE_FACTOR = 1.0;
         let worldPolDelta = 0;
 
