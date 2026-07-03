@@ -13,6 +13,8 @@
     <!-- Firebase compat SDK (single-file friendly) -->
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <!-- Three.js — 3D 영토 관제망 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
     <!-- Distinctive Korean display + sci-fi numeric fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -348,6 +350,227 @@
       }
       #mapViewport.dragging {
         cursor: grabbing;
+      }
+      /* ───────── 3D 영토 관제망 ───────── */
+      #map3dViewport {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        border-radius: var(--radius);
+        background: radial-gradient(
+          900px 600px at 50% 40%,
+          color-mix(in srgb, var(--glow) 16%, transparent),
+          transparent 62%
+        );
+      }
+      #map3dCanvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+        cursor: grab;
+        touch-action: none;
+      }
+      #map3dCanvas.dragging {
+        cursor: grabbing;
+      }
+      #map3dLoc {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 11;
+        padding: 0.35rem 1rem;
+        border-radius: 999px;
+        background: rgba(8, 12, 28, 0.62);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        backdrop-filter: blur(6px);
+        font-size: 0.95rem;
+        pointer-events: none;
+        white-space: nowrap;
+        transition: color 0.3s;
+      }
+      #map3dDock {
+        position: absolute;
+        bottom: 14px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 11;
+        display: flex;
+        gap: 0.4rem;
+        flex-wrap: wrap;
+        justify-content: center;
+        max-width: 94%;
+        padding: 0.4rem 0.55rem;
+        border-radius: 14px;
+        background: rgba(8, 12, 28, 0.55);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        backdrop-filter: blur(8px);
+      }
+      #map3dDock .visitbtn {
+        --vc: #cbd5f5;
+        border: 1px solid color-mix(in srgb, var(--vc) 55%, transparent);
+        background: color-mix(in srgb, var(--vc) 16%, rgba(10, 14, 30, 0.6));
+        color: var(--ink);
+        border-radius: 999px;
+        padding: 0.3rem 0.75rem;
+        font-size: 0.82rem;
+        font-family: "Jua", sans-serif;
+        cursor: pointer;
+        transition: transform 0.12s, background 0.2s;
+        white-space: nowrap;
+      }
+      #map3dDock .visitbtn:hover {
+        transform: translateY(-2px);
+        background: color-mix(in srgb, var(--vc) 30%, rgba(10, 14, 30, 0.55));
+      }
+      #map3dTip {
+        position: absolute;
+        z-index: 20;
+        display: none;
+        pointer-events: none;
+        max-width: 240px;
+        padding: 0.5rem 0.65rem;
+        border-radius: 10px;
+        background: rgba(8, 12, 28, 0.88);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        font-size: 0.78rem;
+        line-height: 1.5;
+        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+      }
+      #map3dEmpty {
+        position: absolute;
+        inset: 0;
+        z-index: 9;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        color: var(--ink-dim);
+        pointer-events: none;
+      }
+      /* ── 🚶 1인칭 걷기 모드 UI ── */
+      #m3Cross {
+        display: none;
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        width: 22px;
+        height: 22px;
+        transform: translate(-50%, -50%);
+        z-index: 12;
+        pointer-events: none;
+      }
+      #m3Cross::before,
+      #m3Cross::after {
+        content: "";
+        position: absolute;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.7);
+      }
+      #m3Cross::before {
+        left: 50%;
+        top: 0;
+        width: 2px;
+        height: 100%;
+        transform: translateX(-50%);
+      }
+      #m3Cross::after {
+        top: 50%;
+        left: 0;
+        height: 2px;
+        width: 100%;
+        transform: translateY(-50%);
+      }
+      #map3dViewport.walkmode #m3Cross {
+        display: block;
+      }
+      #map3dViewport.walkmode #map3dTip {
+        display: none !important;
+      }
+      #m3Target {
+        display: none;
+        position: absolute;
+        left: 50%;
+        bottom: 66px;
+        transform: translateX(-50%);
+        z-index: 12;
+        padding: 0.32rem 0.85rem;
+        border-radius: 999px;
+        background: rgba(8, 12, 28, 0.72);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        font-size: 0.85rem;
+        pointer-events: none;
+        white-space: nowrap;
+        max-width: 92%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #m3WalkHint {
+        display: none;
+        position: absolute;
+        top: 54px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 12;
+        padding: 0.45rem 0.95rem;
+        border-radius: 12px;
+        background: rgba(8, 12, 28, 0.68);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        font-size: 0.8rem;
+        text-align: center;
+        line-height: 1.7;
+        pointer-events: none;
+        max-width: 92%;
+      }
+      #m3Joy {
+        display: none;
+        position: absolute;
+        z-index: 13;
+        width: 112px;
+        height: 112px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        border: 2px solid rgba(255, 255, 255, 0.28);
+        left: 18px;
+        bottom: 84px;
+        touch-action: none;
+      }
+      #m3JoyKnob {
+        position: absolute;
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.4);
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      #map3dViewport.walkmode.coarse #m3Joy {
+        display: block;
+      }
+      #m3WalkBtns {
+        display: none;
+        position: absolute;
+        right: 16px;
+        bottom: 92px;
+        z-index: 13;
+        flex-direction: column;
+        gap: 0.55rem;
+      }
+      #map3dViewport.walkmode.coarse #m3WalkBtns {
+        display: flex;
+      }
+      #m3WalkBtns button {
+        width: 56px;
+        height: 56px;
+        border-radius: 50%;
+        font-size: 1.4rem;
+        background: rgba(8, 12, 28, 0.62);
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        color: #fff;
+        touch-action: none;
       }
       /* HUGE wrapper so labels/grids never clip on zoom or pan */
       #mapZoomWrapper {
@@ -1024,12 +1247,38 @@
               <button class="btn" id="zoomReset" style="padding: 0.35rem 0.7rem">
                 🎯 중앙
               </button>
+              <button class="btn" id="mapModeToggle" style="padding: 0.35rem 0.7rem">
+                🗺️ 2D 지도
+              </button>
               <span class="badge" style="background: rgba(0, 0, 0, 0.4)"
                 >🖱️ 드래그 이동 · 휠 확대</span
               >
             </div>
-            <div id="mapViewport">
+            <div id="mapViewport" style="display: none">
               <div id="mapZoomWrapper"></div>
+            </div>
+            <!-- ★ 3D 영토 관제망 (문명 스타일) -->
+            <div id="map3dViewport">
+              <canvas id="map3dCanvas"></canvas>
+              <div id="map3dLoc" class="jua">🌍 세계 전도</div>
+              <div id="map3dDock"></div>
+              <div id="map3dTip"></div>
+              <div id="m3Cross"></div>
+              <div id="m3Target" class="jua"></div>
+              <div id="m3WalkHint" class="jua"></div>
+              <div id="m3Joy"><div id="m3JoyKnob"></div></div>
+              <div id="m3WalkBtns">
+                <button id="m3BtnJump" type="button">⬆️</button>
+                <button id="m3BtnUse" type="button">🔨</button>
+              </div>
+              <div id="map3dEmpty">
+                <div>
+                  <div style="font-size: 2.6rem">🌌</div>
+                  <div class="jua" style="margin-top: 0.4rem">
+                    세계가 아직 없습니다.<br />마스터의 빅뱅을 기다리세요.
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -2492,12 +2741,16 @@
         renderTab(name);
         renderTurnStepBar();
         if (name === "map") {
-          if (!mapState._centered) {
-            centerMap();
-            mapState._centered = true;
-          } else {
-            applyMapTransform();
+          if (mapMode !== "3d" || M3.failed) {
+            if (!mapState._centered) {
+              centerMap();
+              mapState._centered = true;
+            } else {
+              applyMapTransform();
+            }
           }
+        } else {
+          map3dSetActive(false); // 다른 탭으로 가면 3D 렌더 루프 정지 (배터리 절약)
         }
       }
 
@@ -3542,7 +3795,7 @@
         applyMapTransform();
       }
 
-      function renderMap() {
+      function renderMap2D() {
         const wrap = $("#mapZoomWrapper");
         if (!state.nations) {
           wrap.innerHTML =
@@ -3668,6 +3921,1931 @@
         wrap.innerHTML = html;
         applyMapTransform();
       }
+
+      /* ============================================================================
+   PART G-3D — 영토 관제망 3D 월드 (문명 스타일)
+   ─ 기존 2D 관제망과 완전히 동일한 게임 상태/로직을 공유한다.
+   ─ 3D 타일 클릭 → openBuildModal(국가, 칸번호) 그대로 호출 (건설·점령·권한 재사용)
+   ─ WebGL 미지원 기기는 자동으로 2D 지도로 폴백된다.
+   ========================================================================== */
+      let mapMode = (function () {
+        try {
+          return localStorage.getItem("ebs_map_mode") || "3d";
+        } catch (e) {
+          return "3d";
+        }
+      })();
+
+      const M3 = {
+        inited: false,
+        failed: false,
+        active: false,
+        raf: 0,
+        renderer: null,
+        scene: null,
+        camera: null,
+        clock: null,
+        tiles: {}, // tiles[nation][idx] = { base, content, sig }
+        pick: [], // 레이캐스트 대상(타일 바닥)
+        anims: [], // { root, fn(t,dt) }
+        cam: { tx: 0, tz: 0, dist: 115, gtx: 0, gtz: 0, gdist: 115 },
+        hover: null,
+        hoverNDC: new (window.THREE ? THREE.Vector2 : Object)(),
+        hoverXY: { x: 0, y: 0 },
+        hoverDirty: false,
+        hl: null,
+        introDone: false,
+        statSprites: {},
+        turnSprite: null,
+        texCache: {},
+        geoCache: {},
+        matCache: {},
+        ptrs: new Map(),
+        pinchD: 0,
+        dragging: false,
+        downXY: null,
+        locKey: "",
+        mode: "orbit", // "orbit"(관제 부감) | "walk"(1인칭 걷기)
+        viewInit: false,
+        coarse: false,
+        zero2: null,
+        tmpV: null,
+        _hintTimer: 0,
+        walk: {
+          island: "capital",
+          x: 0,
+          z: 0,
+          y: 0,
+          vy: 0,
+          yaw: 0,
+          pitch: -0.05,
+          onGround: true,
+          locked: false,
+          lockBlocked: false,
+          bobT: 0,
+          keys: {},
+          joyF: 0,
+          joyR: 0,
+          jumpReq: false,
+          lookId: -1,
+          lookLast: null,
+          target: null,
+        },
+      };
+
+      const M3_TILE = 2.05,
+        M3_GAP = 0.24,
+        M3_GRID = 4,
+        M3_STEP = M3_TILE + M3_GAP;
+      /* 십자 배치 — 2D 관제망과 동일한 방위 (상=생명, 하=강철, 좌=지혜, 우=자본) */
+      const M3_POS = {
+        un: { x: 0, z: 0 },
+        life: { x: 0, z: -18 },
+        steel: { x: 0, z: 18 },
+        wisdom: { x: -18, z: 0 },
+        capital: { x: 18, z: 0 },
+      };
+
+      function m3On() {
+        return mapMode === "3d" && !M3.failed;
+      }
+
+      /* ---------- 지오메트리/재질/텍스처 캐시 ---------- */
+      function m3Geo(kind) {
+        const args = Array.prototype.slice.call(arguments, 1);
+        const key = kind + "|" + args.join(",");
+        if (!M3.geoCache[key]) M3.geoCache[key] = new THREE[kind](...args);
+        return M3.geoCache[key];
+      }
+      function m3Mat(color, opt) {
+        opt = opt || {};
+        const key =
+          color +
+          "|" +
+          (opt.opacity != null ? opt.opacity : 1) +
+          "|" +
+          (opt.emissive || 0) +
+          "|" +
+          (opt.flat ? 1 : 0);
+        if (!M3.matCache[key]) {
+          M3.matCache[key] = new THREE.MeshStandardMaterial({
+            color: color,
+            transparent: opt.opacity != null && opt.opacity < 1,
+            opacity: opt.opacity != null ? opt.opacity : 1,
+            emissive: opt.emissive || 0x000000,
+            roughness: 0.92,
+            metalness: 0.04,
+          });
+        }
+        return M3.matCache[key];
+      }
+      /* 프리미티브 헬퍼 — 그룹 g에 도형을 추가하고 mesh 반환 */
+      function m3Add(g, geo, color, x, y, z, opt) {
+        opt = opt || {};
+        const m = new THREE.Mesh(geo, m3Mat(color, opt));
+        m.position.set(x || 0, y || 0, z || 0);
+        if (opt.rx) m.rotation.x = opt.rx;
+        if (opt.ry) m.rotation.y = opt.ry;
+        if (opt.rz) m.rotation.z = opt.rz;
+        if (opt.sx || opt.sy || opt.sz)
+          m.scale.set(opt.sx || 1, opt.sy || 1, opt.sz || 1);
+        m.castShadow = opt.noShadow ? false : true;
+        m.receiveShadow = !!opt.receive;
+        g.add(m);
+        return m;
+      }
+      function m3B(g, w, h, d, color, x, y, z, opt) {
+        return m3Add(g, m3Geo("BoxGeometry", w, h, d), color, x, y, z, opt);
+      }
+      function m3C(g, rt, rb, h, color, x, y, z, opt) {
+        return m3Add(
+          g,
+          m3Geo("CylinderGeometry", rt, rb, h, (opt && opt.seg) || 12),
+          color,
+          x,
+          y,
+          z,
+          opt,
+        );
+      }
+      function m3S(g, r, color, x, y, z, opt) {
+        return m3Add(g, m3Geo("SphereGeometry", r, 12, 10), color, x, y, z, opt);
+      }
+      function m3K(g, r, h, color, x, y, z, opt) {
+        return m3Add(
+          g,
+          m3Geo("ConeGeometry", r, h, (opt && opt.seg) || 10),
+          color,
+          x,
+          y,
+          z,
+          opt,
+        );
+      }
+
+      /* ---------- 스프라이트(이모지/텍스트) ---------- */
+      function m3EmojiSprite(emo, scale) {
+        let tex = M3.texCache["e:" + emo];
+        if (!tex) {
+          const cv = document.createElement("canvas");
+          cv.width = cv.height = 128;
+          const cx = cv.getContext("2d");
+          cx.font = "96px serif";
+          cx.textAlign = "center";
+          cx.textBaseline = "middle";
+          cx.fillText(emo, 64, 72);
+          tex = new THREE.CanvasTexture(cv);
+          tex.minFilter = THREE.LinearFilter;
+          M3.texCache["e:" + emo] = tex;
+        }
+        const sp = new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }),
+        );
+        sp.scale.set(scale, scale, 1);
+        return sp;
+      }
+      function m3TextSprite(text, opt) {
+        opt = opt || {};
+        const cv = document.createElement("canvas");
+        cv.width = 640;
+        cv.height = 150;
+        const cx = cv.getContext("2d");
+        const tex = new THREE.CanvasTexture(cv);
+        tex.minFilter = THREE.LinearFilter;
+        const sp = new THREE.Sprite(
+          new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }),
+        );
+        const fontPx = opt.font || 64;
+        function set(t) {
+          cx.clearRect(0, 0, 640, 150);
+          cx.font = '700 ' + fontPx + 'px "Jua","Black Han Sans",sans-serif';
+          cx.textAlign = "center";
+          cx.textBaseline = "middle";
+          cx.lineWidth = 12;
+          cx.lineJoin = "round";
+          cx.strokeStyle = opt.stroke || "rgba(7,11,26,.9)";
+          cx.strokeText(t, 320, 78);
+          cx.fillStyle = opt.color || "#eef2ff";
+          cx.fillText(t, 320, 78);
+          tex.needsUpdate = true;
+        }
+        set(text);
+        const s = opt.scale || 1;
+        sp.scale.set(8.6 * s, 2.0 * s, 1);
+        sp.userData.set = set;
+        return sp;
+      }
+
+      /* ---------- 사실적 재질(노이즈 텍스처) ---------- */
+      function m3NoiseTex(light, dark, density, rep) {
+        const ck = "n:" + light + ":" + dark + ":" + density + ":" + rep;
+        if (ck in M3.texCache) return M3.texCache[ck];
+        let tex = null;
+        try {
+          const cv = document.createElement("canvas");
+          cv.width = cv.height = 128;
+          const cx = cv.getContext("2d");
+          cx.fillStyle = light;
+          cx.fillRect(0, 0, 128, 128);
+          for (let i = 0; i < density; i++) {
+            cx.fillStyle = Math.random() < 0.55 ? dark : "#ffffff";
+            cx.globalAlpha = 0.1 + Math.random() * 0.18;
+            const s = 1 + Math.random() * 3;
+            cx.fillRect(Math.random() * 128, Math.random() * 128, s, s);
+          }
+          cx.globalAlpha = 1;
+          tex = new THREE.CanvasTexture(cv);
+          tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+          tex.repeat.set(rep || 4, rep || 4);
+        } catch (e) {
+          tex = null;
+        }
+        M3.texCache[ck] = tex;
+        return tex;
+      }
+      function m3TerrainMat(colorHex, roughness) {
+        const key = "T:" + colorHex + ":" + (roughness || 0.95);
+        if (!M3.matCache[key]) {
+          const noise = m3NoiseTex("#ffffff", "#404040", 850, 3);
+          const opt = {
+            color: colorHex,
+            roughness: roughness || 0.95,
+            metalness: 0.0,
+          };
+          if (noise) opt.map = noise;
+          M3.matCache[key] = new THREE.MeshStandardMaterial(opt);
+        }
+        return M3.matCache[key];
+      }
+      function m3GlowTex() {
+        if ("glow" in M3.texCache) return M3.texCache["glow"];
+        let tex = null;
+        try {
+          const cv = document.createElement("canvas");
+          cv.width = cv.height = 128;
+          const cx = cv.getContext("2d");
+          const g = cx.createRadialGradient(64, 64, 4, 64, 64, 62);
+          g.addColorStop(0, "rgba(255,252,235,1)");
+          g.addColorStop(0.25, "rgba(255,242,196,0.9)");
+          g.addColorStop(1, "rgba(255,242,196,0)");
+          cx.fillStyle = g;
+          cx.fillRect(0, 0, 128, 128);
+          tex = new THREE.CanvasTexture(cv);
+        } catch (e) {
+          tex = null;
+        }
+        M3.texCache["glow"] = tex;
+        return tex;
+      }
+
+      /* ---------- 펄럭이는 깃발 ---------- */
+      function m3Flag(parent, colorHex, poleH, flagW, flagH, x, z) {
+        m3C(parent, 0.05, 0.07, poleH, 0x8a8f9c, x, poleH / 2, z);
+        m3S(parent, 0.09, 0xffd166, x, poleH + 0.03, z);
+        const geo = new THREE.PlaneGeometry(flagW, flagH, 8, 3);
+        const mat = new THREE.MeshStandardMaterial({
+          color: colorHex,
+          side: THREE.DoubleSide,
+          roughness: 0.85,
+          metalness: 0.0,
+        });
+        const flag = new THREE.Mesh(geo, mat);
+        flag.castShadow = true;
+        flag.position.set(x + flagW / 2 + 0.05, poleH - flagH / 2 - 0.05, z);
+        parent.add(flag);
+        const pos = geo.attributes.position;
+        const baseX = [];
+        for (let i = 0; i < pos.count; i++) baseX.push(pos.getX(i));
+        const phase = Math.random() * 6.28;
+        M3.anims.push({
+          root: parent,
+          fn: function (t) {
+            for (let i = 0; i < pos.count; i++) {
+              const nx = (baseX[i] + flagW / 2) / flagW; // 0(폴)→1(끝)
+              pos.setZ(i, Math.sin(baseX[i] * 2.2 + t * 4 + phase) * 0.13 * nx);
+            }
+            pos.needsUpdate = true;
+          },
+        });
+        return flag;
+      }
+
+      /* ---------- 나무 (공원/숲 재사용) ---------- */
+      function m3Tree(g, x, z, s, kind) {
+        s = s || 1;
+        m3C(g, 0.05 * s, 0.08 * s, 0.4 * s, 0x6b4a2e, x, 0.2 * s, z);
+        if (kind === "pine") {
+          m3K(g, 0.26 * s, 0.55 * s, 0x2e7d43, x, 0.62 * s, z);
+          m3K(g, 0.2 * s, 0.45 * s, 0x36934e, x, 0.92 * s, z);
+        } else {
+          m3S(g, 0.26 * s, 0x3f9e57, x, 0.58 * s, z);
+          m3S(g, 0.17 * s, 0x4cb166, x + 0.14 * s, 0.72 * s, z + 0.06 * s);
+        }
+      }
+
+      /* ============================================================
+         25종 건물 — 로우폴리 프로시저럴 모델
+         타일 한 칸(≈1.8×1.8) 안에 들어가도록 제작
+         ============================================================ */
+      function m3Building(bid) {
+        const g = new THREE.Group();
+        switch (bid) {
+          case "farm": {
+            m3B(g, 1.6, 0.08, 1.6, 0x7a5a33, 0, 0.04, 0);
+            for (let i = 0; i < 4; i++)
+              m3B(g, 1.4, 0.1, 0.18, 0xd9b44a, 0, 0.12, -0.55 + i * 0.36);
+            m3B(g, 0.5, 0.35, 0.4, 0xb0402f, 0.5, 0.28, 0.62);
+            m3K(g, 0.36, 0.26, 0x7c2d21, 0.5, 0.58, 0.62, { seg: 4, ry: Math.PI / 4 });
+            break;
+          }
+          case "hospital": {
+            m3B(g, 1.1, 0.9, 0.9, 0xf1f5f9, 0, 0.45, 0);
+            m3B(g, 0.5, 0.14, 0.06, 0xe11d48, 0, 0.62, 0.48);
+            m3B(g, 0.14, 0.5, 0.06, 0xe11d48, 0, 0.62, 0.48);
+            m3B(g, 0.4, 0.3, 0.05, 0x93c5fd, -0.25, 0.3, 0.46);
+            m3B(g, 0.4, 0.3, 0.05, 0x93c5fd, 0.25, 0.3, 0.46);
+            break;
+          }
+          case "school": {
+            m3B(g, 1.3, 0.7, 0.8, 0xd97706, 0, 0.35, 0);
+            m3K(g, 0.85, 0.4, 0x9a3412, 0, 0.9, 0, { seg: 4, ry: Math.PI / 4 });
+            m3B(g, 0.26, 0.4, 0.05, 0x78350f, 0, 0.2, 0.42);
+            m3C(g, 0.03, 0.03, 0.9, 0x94a3b8, 0.65, 1.1, 0.3);
+            break;
+          }
+          case "lab": {
+            m3C(g, 0.55, 0.62, 0.7, 0xe2e8f0, 0, 0.35, 0);
+            m3S(g, 0.5, 0x7dd3fc, 0, 0.78, 0, { opacity: 0.65 });
+            m3C(g, 0.04, 0.04, 0.5, 0x94a3b8, 0.45, 1.0, 0.2);
+            m3S(g, 0.07, 0xf43f5e, 0.45, 1.27, 0.2);
+            break;
+          }
+          case "nuclear": {
+            m3C(g, 0.3, 0.42, 1.1, 0xcbd5e1, -0.4, 0.55, 0);
+            m3C(g, 0.24, 0.34, 0.85, 0xcbd5e1, 0.42, 0.42, 0.15);
+            m3B(g, 0.6, 0.4, 0.6, 0x64748b, 0.05, 0.2, -0.55);
+            const puff = new THREE.Group();
+            m3S(puff, 0.16, 0xf8fafc, -0.4, 1.25, 0, { opacity: 0.8, noShadow: true });
+            m3S(puff, 0.12, 0xf8fafc, -0.3, 1.45, 0.05, { opacity: 0.6, noShadow: true });
+            g.add(puff);
+            M3.anims.push({
+              root: g,
+              fn: function (t) {
+                puff.position.y = Math.sin(t * 1.6) * 0.08;
+                puff.rotation.y = t * 0.4;
+              },
+            });
+            break;
+          }
+          case "purifier": {
+            m3K(g, 0.42, 0.5, 0x9aa5b8, 0, 0.25, 0, { seg: 4, ry: Math.PI / 4 });
+            m3C(g, 0.07, 0.16, 1.3, 0xc0cad9, 0, 1.05, 0);
+            m3C(g, 0.2, 0.2, 0.06, 0x38bdf8, 0, 1.0, 0, { opacity: 0.85 });
+            m3C(g, 0.26, 0.26, 0.06, 0x38bdf8, 0, 0.7, 0, { opacity: 0.6 });
+            m3S(g, 0.12, 0x7dd3fc, 0, 1.78, 0, { emissive: 0x38bdf8 });
+            break;
+          }
+          case "market": {
+            m3B(g, 1.3, 0.5, 0.9, 0xb08655, 0, 0.25, 0);
+            for (let i = 0; i < 4; i++)
+              m3B(g, 0.33, 0.06, 1.05, i % 2 ? 0xef4444 : 0xfef3c7, -0.49 + i * 0.33, 0.58, 0.05, { rx: -0.18 });
+            m3B(g, 0.3, 0.3, 0.3, 0x8b5e34, 0.75, 0.15, 0.45);
+            m3B(g, 0.24, 0.24, 0.24, 0xa16207, 0.75, 0.42, 0.45);
+            break;
+          }
+          case "bank": {
+            m3B(g, 1.3, 0.16, 1.0, 0xd6d3d1, 0, 0.08, 0);
+            for (let i = 0; i < 4; i++)
+              m3C(g, 0.08, 0.08, 0.7, 0xf5f5f4, -0.48 + i * 0.32, 0.5, 0.36);
+            m3B(g, 1.1, 0.55, 0.7, 0xe7e5e4, 0, 0.45, -0.1);
+            m3K(g, 0.75, 0.32, 0xd6d3d1, 0, 0.98, -0.02, { seg: 4, ry: Math.PI / 4, sz: 0.72 });
+            m3C(g, 0.18, 0.18, 0.06, 0xf5c518, 0, 1.28, 0, { rx: Math.PI / 2, emissive: 0x8a6d0a });
+            break;
+          }
+          case "factory": {
+            m3B(g, 1.3, 0.55, 0.9, 0x6b7280, 0, 0.28, 0);
+            m3K(g, 0.34, 0.3, 0x4b5563, -0.32, 0.7, 0, { seg: 3, sz: 1.5 });
+            m3K(g, 0.34, 0.3, 0x4b5563, 0.33, 0.7, 0, { seg: 3, sz: 1.5 });
+            m3C(g, 0.1, 0.12, 0.8, 0x374151, 0.45, 0.95, -0.3);
+            m3C(g, 0.08, 0.1, 0.6, 0x374151, 0.15, 0.85, -0.32);
+            const smoke = new THREE.Group();
+            const sm = m3S(smoke, 0.13, 0x9ca3af, 0.45, 1.45, -0.3, { opacity: 0.7, noShadow: true });
+            sm.material = sm.material.clone(); // 애니메이션용 독립 재질
+            g.add(smoke);
+            M3.anims.push({
+              root: g,
+              fn: function (t) {
+                smoke.position.y = ((t * 0.25) % 0.5);
+                smoke.children[0].material.opacity = 0.7 - ((t * 0.25) % 0.5);
+              },
+            });
+            break;
+          }
+          case "mine": {
+            m3K(g, 0.7, 0.75, 0x6d6a63, -0.1, 0.37, -0.1, { seg: 6 });
+            m3K(g, 0.45, 0.5, 0x7d7a72, 0.4, 0.25, 0.3, { seg: 5 });
+            m3B(g, 0.4, 0.4, 0.1, 0x2b2724, -0.1, 0.2, 0.52);
+            m3B(g, 0.5, 0.08, 0.1, 0x8b5e34, -0.1, 0.42, 0.52);
+            m3B(g, 0.08, 0.4, 0.1, 0x8b5e34, -0.32, 0.2, 0.52);
+            m3B(g, 0.08, 0.4, 0.1, 0x8b5e34, 0.12, 0.2, 0.52);
+            m3S(g, 0.08, 0xf5c518, 0.42, 0.55, 0.32, { emissive: 0x6b5407 });
+            break;
+          }
+          case "barracks": {
+            m3B(g, 1.4, 0.45, 0.7, 0x5b6b45, 0, 0.22, -0.25);
+            m3K(g, 0.9, 0.3, 0x47543a, 0, 0.6, -0.25, { seg: 4, ry: Math.PI / 4, sz: 0.55 });
+            m3K(g, 0.35, 0.4, 0x77875c, -0.4, 0.2, 0.45, { seg: 4, ry: Math.PI / 4 });
+            m3K(g, 0.35, 0.4, 0x77875c, 0.4, 0.2, 0.45, { seg: 4, ry: Math.PI / 4 });
+            m3Flag(g, 0xb91c1c, 1.0, 0.4, 0.26, 0.62, -0.5);
+            break;
+          }
+          case "fortress": {
+            m3B(g, 0.9, 0.75, 0.9, 0x8d99ae, 0, 0.37, 0);
+            for (let sx = -1; sx <= 1; sx += 2)
+              for (let sz = -1; sz <= 1; sz += 2) {
+                m3C(g, 0.18, 0.2, 0.95, 0x7c889d, sx * 0.48, 0.47, sz * 0.48, { seg: 8 });
+                m3K(g, 0.24, 0.3, 0x475569, sx * 0.48, 1.1, sz * 0.48, { seg: 8 });
+              }
+            for (let i = 0; i < 3; i++)
+              m3B(g, 0.16, 0.14, 0.1, 0x7c889d, -0.28 + i * 0.28, 0.82, 0.45);
+            m3B(g, 0.26, 0.35, 0.06, 0x1e293b, 0, 0.18, 0.46);
+            break;
+          }
+          case "academy": {
+            m3B(g, 1.2, 0.6, 0.8, 0x64748b, 0, 0.3, 0);
+            m3K(g, 0.8, 0.35, 0x334155, 0, 0.78, 0, { seg: 4, ry: Math.PI / 4 });
+            m3B(g, 0.22, 0.36, 0.05, 0x1e293b, 0, 0.18, 0.42);
+            m3C(g, 0.16, 0.16, 0.05, 0xfacc15, 0, 0.62, 0.43, { rx: Math.PI / 2, emissive: 0x715e08 });
+            m3Flag(g, 0x334155, 1.15, 0.42, 0.26, 0.52, -0.32);
+            break;
+          }
+          case "temple": {
+            m3B(g, 1.25, 0.14, 0.95, 0xf5f0e6, 0, 0.07, 0);
+            for (let i = 0; i < 4; i++) {
+              m3C(g, 0.07, 0.07, 0.62, 0xfdfaf3, -0.45 + i * 0.3, 0.45, 0.32);
+              m3C(g, 0.07, 0.07, 0.62, 0xfdfaf3, -0.45 + i * 0.3, 0.45, -0.32);
+            }
+            m3K(g, 0.85, 0.32, 0xd9b44a, 0, 0.92, 0, { seg: 4, ry: Math.PI / 4, sz: 0.7 });
+            break;
+          }
+          case "theater": {
+            m3C(g, 0.62, 0.68, 0.4, 0xfef3c7, 0, 0.2, 0);
+            m3K(g, 0.66, 0.55, 0xdc2626, 0, 0.66, 0, { seg: 10 });
+            m3K(g, 0.3, 0.32, 0xfbbf24, 0, 1.05, 0, { seg: 10 });
+            m3Flag(g, 0xfbbf24, 1.45, 0.32, 0.2, 0, 0);
+            break;
+          }
+          case "park": {
+            m3C(g, 0.85, 0.9, 0.08, 0x59a066, 0, 0.04, 0, { seg: 10 });
+            m3C(g, 0.3, 0.32, 0.05, 0x3aa7d9, 0.3, 0.09, 0.3, { seg: 10, opacity: 0.9 });
+            m3Tree(g, -0.4, -0.3, 1.0);
+            m3Tree(g, 0.3, -0.45, 0.8, "pine");
+            m3B(g, 0.4, 0.08, 0.14, 0x8b5e34, -0.3, 0.16, 0.45);
+            break;
+          }
+          case "forest": {
+            m3Tree(g, -0.45, -0.4, 1.15, "pine");
+            m3Tree(g, 0.35, -0.5, 1.0);
+            m3Tree(g, -0.5, 0.35, 0.95);
+            m3Tree(g, 0.45, 0.4, 1.2, "pine");
+            m3Tree(g, 0, 0, 1.35);
+            m3S(g, 0.1, 0x92400e, 0.6, 0.08, -0.1);
+            break;
+          }
+          case "solar": {
+            m3B(g, 1.5, 0.06, 1.5, 0x475569, 0, 0.03, 0);
+            for (let i = 0; i < 3; i++) {
+              m3C(g, 0.04, 0.04, 0.3, 0x94a3b8, -0.45 + i * 0.45, 0.2, 0);
+              m3B(g, 0.4, 0.04, 0.9, 0x1e3a8a, -0.45 + i * 0.45, 0.38, 0, { rz: -0.5, emissive: 0x102048 });
+            }
+            break;
+          }
+          case "windfarm": {
+            for (let i = 0; i < 2; i++) {
+              const x = i ? 0.42 : -0.42,
+                z = i ? 0.3 : -0.25,
+                h = i ? 1.15 : 1.5;
+              m3C(g, 0.05, 0.1, h, 0xe5e7eb, x, h / 2, z);
+              m3B(g, 0.2, 0.12, 0.14, 0xd1d5db, x, h, z);
+              const rotor = new THREE.Group();
+              for (let b = 0; b < 3; b++) {
+                const blade = m3B(rotor, 0.06, 0.62, 0.03, 0xf9fafb, 0, 0.3, 0);
+                const arm = new THREE.Group();
+                arm.add(blade);
+                arm.rotation.z = (b * Math.PI * 2) / 3;
+                rotor.add(arm);
+              }
+              rotor.position.set(x, h, z + 0.1);
+              g.add(rotor);
+              const spd = i ? 2.4 : 1.7;
+              M3.anims.push({
+                root: g,
+                fn: function (t) {
+                  rotor.rotation.z = t * spd;
+                },
+              });
+            }
+            break;
+          }
+          case "harbor": {
+            m3B(g, 1.7, 0.06, 1.0, 0x1d4ed8, 0, 0.03, 0.25, { opacity: 0.85, noShadow: true });
+            m3B(g, 1.5, 0.12, 0.5, 0x8b5e34, 0, 0.1, -0.5);
+            m3C(g, 0.06, 0.06, 0.9, 0xf59e0b, -0.45, 0.55, -0.5);
+            m3B(g, 0.8, 0.07, 0.07, 0xf59e0b, -0.13, 0.95, -0.5);
+            m3B(g, 0.06, 0.3, 0.06, 0x475569, 0.22, 0.78, -0.5);
+            m3B(g, 0.34, 0.2, 0.2, 0xdc2626, 0.5, 0.26, -0.5);
+            m3B(g, 0.34, 0.2, 0.2, 0x16a34a, 0.5, 0.46, -0.5);
+            m3B(g, 0.5, 0.16, 0.24, 0xf8fafc, -0.2, 0.14, 0.3);
+            m3B(g, 0.2, 0.14, 0.16, 0x64748b, -0.28, 0.28, 0.3);
+            break;
+          }
+          case "library": {
+            m3B(g, 1.15, 0.65, 0.85, 0x9a6b4f, 0, 0.32, 0);
+            m3B(g, 1.25, 0.1, 0.95, 0x7c4f37, 0, 0.7, 0);
+            const bc = [0xef4444, 0x3b82f6, 0x22c55e, 0xf59e0b];
+            for (let i = 0; i < 4; i++)
+              m3B(g, 0.16, 0.4 + (i % 2) * 0.12, 0.28, bc[i], -0.3 + i * 0.2, 0.95, 0, { rz: i === 3 ? 0.35 : 0 });
+            m3B(g, 0.24, 0.36, 0.05, 0x3f2c1e, 0, 0.18, 0.44);
+            break;
+          }
+          case "stadium": {
+            m3Add(g, m3Geo("TorusGeometry", 0.62, 0.2, 8, 20), 0xcbd5e1, 0, 0.18, 0, { rx: Math.PI / 2, sy: 1, sz: 1 });
+            m3C(g, 0.5, 0.5, 0.06, 0x36934e, 0, 0.1, 0, { seg: 16 });
+            for (let i = 0; i < 4; i++) {
+              const a = (i * Math.PI) / 2 + Math.PI / 4;
+              m3C(g, 0.03, 0.03, 0.7, 0x94a3b8, Math.cos(a) * 0.85, 0.35, Math.sin(a) * 0.85);
+              m3B(g, 0.16, 0.1, 0.05, 0xfef9c3, Math.cos(a) * 0.85, 0.72, Math.sin(a) * 0.85, { emissive: 0x8a7d1a, noShadow: true });
+            }
+            break;
+          }
+          case "tower": {
+            m3B(g, 0.6, 1.0, 0.6, 0x3b82f6, -0.25, 0.5, -0.15, { emissive: 0x0c1c3e });
+            m3B(g, 0.5, 1.7, 0.5, 0x60a5fa, 0.25, 0.85, 0.15, { emissive: 0x11294f });
+            m3B(g, 0.52, 0.06, 0.52, 0xe2e8f0, 0.25, 1.73, 0.15);
+            m3C(g, 0.02, 0.02, 0.5, 0xcbd5e1, 0.25, 2.0, 0.15);
+            m3S(g, 0.06, 0xf43f5e, 0.25, 2.27, 0.15, { emissive: 0xb91c3c });
+            for (let f = 0; f < 4; f++)
+              m3B(g, 0.54, 0.04, 0.54, 0xbfdbfe, 0.25, 0.3 + f * 0.38, 0.15, { noShadow: true });
+            break;
+          }
+          case "waterplant": {
+            m3C(g, 0.34, 0.34, 0.55, 0x60a5fa, -0.4, 0.27, 0.15);
+            m3C(g, 0.28, 0.28, 0.45, 0x93c5fd, 0.15, 0.22, 0.35);
+            m3C(g, 0.05, 0.05, 1.0, 0x94a3b8, 0.5, 0.5, -0.35);
+            m3S(g, 0.3, 0x3b82f6, 0.5, 1.1, -0.35);
+            m3B(g, 0.7, 0.07, 0.07, 0xcbd5e1, -0.1, 0.5, 0.22, { rz: 0.2 });
+            break;
+          }
+          case "shield": {
+            m3K(g, 0.5, 0.35, 0x64748b, 0, 0.17, 0, { seg: 6 });
+            m3C(g, 0.06, 0.08, 0.7, 0x94a3b8, 0, 0.6, 0);
+            const dish = new THREE.Group();
+            const dm = m3Add(
+              dish,
+              m3Geo("SphereGeometry", 0.42, 12, 8, 0, Math.PI * 2, 0, Math.PI / 2.6),
+              0xe2e8f0,
+              0,
+              0,
+              0,
+              { rx: -Math.PI / 3 },
+            );
+            dm.material.side = THREE.DoubleSide;
+            m3C(dish, 0.02, 0.02, 0.4, 0xf43f5e, 0, 0.2, 0.12, { rx: -Math.PI / 3 });
+            dish.position.set(0, 1.0, 0);
+            g.add(dish);
+            M3.anims.push({
+              root: g,
+              fn: function (t) {
+                dish.rotation.y = t * 0.8;
+              },
+            });
+            break;
+          }
+          default: {
+            m3B(g, 0.8, 0.6, 0.8, 0x94a3b8, 0, 0.3, 0);
+          }
+        }
+        return g;
+      }
+
+      /* ---------- 타일 윗면 색 ---------- */
+      function m3TopColor(key, idx, raw) {
+        if (isConquered(raw)) {
+          const cq = NATIONS[conquerorOf(raw)];
+          const c = new THREE.Color(cq ? cq.color : "#e11d48");
+          c.lerp(new THREE.Color(0x141821), 0.45);
+          return c.getHex();
+        }
+        if (idx < CAPITAL_TILES) {
+          const c = new THREE.Color(0xc9a63c);
+          c.lerp(new THREE.Color(NATIONS[key].color), 0.2);
+          return c.getHex();
+        }
+        const c = new THREE.Color(0x5a9a63);
+        c.lerp(new THREE.Color(NATIONS[key].color), 0.14);
+        return c.getHex();
+      }
+
+      /* ---------- 타일 내용물(건물/점령기/빈칸) 구성 ---------- */
+      function m3ClearContent(group) {
+        // 이 그룹 밑에서 등록된 애니메이션 제거
+        M3.anims = M3.anims.filter(function (a) {
+          if (!a.root) return true;
+          let p = a.root;
+          while (p) {
+            if (p === group) return false;
+            p = p.parent;
+          }
+          // root가 아직 씬에 없더라도(제거됨) group 자식이었는지 검사
+          return group.children.indexOf(a.root) === -1;
+        });
+        while (group.children.length) group.remove(group.children[0]);
+      }
+
+      function m3BuildTileContent(key, idx, raw) {
+        const t = M3.tiles[key][idx];
+        const g = t.content;
+        m3ClearContent(g);
+        const mine = ME && ME.role === "student" && ME.nation === key;
+
+        if (idx < CAPITAL_TILES) {
+          const crown = m3EmojiSprite("👑", 0.55);
+          crown.position.set(-0.72, 0.45, -0.72);
+          g.add(crown);
+        }
+
+        if (isConquered(raw)) {
+          const conqKey = conquerorOf(raw);
+          const cq = NATIONS[conqKey];
+          const col = new THREE.Color(cq ? cq.color : "#e11d48").getHex();
+          const bId = conqueredBuilding(raw);
+          if (bId && BMAP[bId]) {
+            const b = BMAP[bId];
+            g.add(m3Building(bId));
+            const emo = m3EmojiSprite(b.icon, 0.85);
+            emo.position.set(0, 2.5, 0);
+            g.add(emo);
+            m3Bob(g, emo, 2.5);
+            if (b.defense) m3Dome(g, col);
+            m3Flag(g, col, 1.9, 0.55, 0.34, 0.72, 0.72);
+          } else {
+            // 빈 점령지 — 깃발만 나부낌
+            m3Flag(g, col, 1.7, 0.75, 0.45, 0, 0);
+            const fire = m3EmojiSprite("🚩", 0.6);
+            fire.position.set(0.6, 0.4, -0.6);
+            g.add(fire);
+          }
+        } else if (raw && BMAP[raw]) {
+          const b = BMAP[raw];
+          g.add(m3Building(raw));
+          const emo = m3EmojiSprite(b.icon, 0.85);
+          emo.position.set(0, 2.5, 0);
+          g.add(emo);
+          m3Bob(g, emo, 2.5);
+          if (b.defense) m3Dome(g, new THREE.Color(NATIONS[key].color).getHex());
+        } else {
+          // 빈 땅 — ＋ 마커 (내 땅이면 국가색으로 반짝임)
+          const col = mine ? new THREE.Color(NATIONS[key].color).getHex() : 0x8fa0c9;
+          const plus = new THREE.Group();
+          m3B(plus, 0.5, 0.06, 0.12, col, 0, 0.06, 0, { noShadow: true });
+          m3B(plus, 0.12, 0.06, 0.5, col, 0, 0.06, 0, { noShadow: true });
+          g.add(plus);
+          if (mine)
+            M3.anims.push({
+              root: g,
+              fn: function (t) {
+                const s = 1 + Math.sin(t * 3) * 0.12;
+                plus.scale.set(s, 1, s);
+              },
+            });
+        }
+      }
+      function m3Bob(root, sp, baseY) {
+        const ph = Math.random() * 6.28;
+        M3.anims.push({
+          root: root,
+          fn: function (t) {
+            sp.position.y = baseY + Math.sin(t * 1.8 + ph) * 0.1;
+          },
+        });
+      }
+      function m3Dome(g, colorHex) {
+        const dome = m3Add(
+          g,
+          m3Geo("SphereGeometry", 1.25, 16, 10, 0, Math.PI * 2, 0, Math.PI / 2),
+          colorHex,
+          0,
+          0.05,
+          0,
+          { opacity: 0.16, noShadow: true },
+        );
+        dome.material = dome.material.clone();
+        dome.material.side = THREE.DoubleSide;
+        const sh = m3EmojiSprite("🛡️", 0.5);
+        sh.position.set(0.72, 0.5, 0.72);
+        g.add(sh);
+        M3.anims.push({
+          root: g,
+          fn: function (t) {
+            dome.material.opacity = 0.12 + (Math.sin(t * 2.2) + 1) * 0.05;
+          },
+        });
+      }
+
+      /* ---------- 섬(국가/UN) 건설 ---------- */
+      function m3BuildIsland(key) {
+        const isUN = key === "un";
+        const cfg = isUN
+          ? { name: "UN 허브", color: "#a78bfa" }
+          : NATIONS[key];
+        const p = M3_POS[key];
+        const g = new THREE.Group();
+        g.position.set(p.x, 0, p.z);
+        const nc = new THREE.Color(cfg.color);
+
+        const size = isUN ? 7.2 : M3_GRID * M3_TILE + (M3_GRID - 1) * M3_GAP + 1.7;
+        const grassC = isUN
+          ? 0x5b5480
+          : new THREE.Color(0x4f8c58).lerp(nc, 0.18).getHex();
+
+        // 떠 있는 섬 본체 (잔디 → 흙 → 암반 순서로 좁아짐)
+        const grass = new THREE.Mesh(
+          m3Geo("BoxGeometry", size, 0.6, size),
+          m3TerrainMat(grassC, 0.95),
+        );
+        grass.position.set(0, -0.3, 0);
+        grass.receiveShadow = true;
+        grass.castShadow = false;
+        g.add(grass);
+        m3B(g, size - 0.7, 1.2, size - 0.7, 0x6b4f36, 0, -1.2, 0);
+        m3Add(g, m3Geo("ConeGeometry", size * 0.45, 3.2, 5), 0x473828, 0, -3.2, 0, {
+          rx: Math.PI,
+        });
+
+        // 국가색 테두리 띠
+        const rim = m3B(g, size + 0.16, 0.14, size + 0.16, nc.getHex(), 0, 0.02, 0, {
+          noShadow: true,
+        });
+        rim.receiveShadow = false;
+
+        // 이름표 + 국기
+        const name = m3TextSprite((isUN ? "🕊️ " : "") + cfg.name, {
+          color: cfg.color,
+          scale: isUN ? 0.85 : 1.15,
+          font: 70,
+        });
+        name.position.set(0, isUN ? 4.6 : 6.1, 0);
+        g.add(name);
+
+        if (isUN) {
+          m3C(g, 1.5, 1.7, 0.5, 0xd8d4f2, 0, 0.25, 0, { seg: 16 });
+          m3C(g, 1.1, 1.2, 0.35, 0xefedff, 0, 0.65, 0, { seg: 16 });
+          const dove = m3EmojiSprite("🕊️", 2.4);
+          dove.position.set(0, 2.3, 0);
+          g.add(dove);
+          m3Bob(g, dove, 2.3);
+          const ring = m3Add(
+            g,
+            m3Geo("TorusGeometry", 2.6, 0.07, 8, 40),
+            0xa78bfa,
+            0,
+            1.1,
+            0,
+            { rx: Math.PI / 2, noShadow: true, emissive: 0x4c3a8a },
+          );
+          M3.anims.push({
+            root: null,
+            fn: function (t) {
+              ring.rotation.z = t * 0.3;
+              ring.position.y = 1.1 + Math.sin(t * 1.2) * 0.15;
+            },
+          });
+          M3.turnSprite = m3TextSprite("Turn 1", {
+            color: "#e7e2ff",
+            scale: 0.6,
+            font: 62,
+          });
+          M3.turnSprite.position.set(0, 3.6, 0);
+          g.add(M3.turnSprite);
+          // 4방향 연결 다리(빛 라인)
+          Object.keys(M3_POS).forEach(function (k) {
+            if (k === "un") return;
+            const q = M3_POS[k];
+            const len = Math.hypot(q.x, q.z) - 9;
+            const beam = m3B(
+              g,
+              Math.abs(q.x) > 0 ? len : 0.18,
+              0.06,
+              Math.abs(q.z) > 0 ? len : 0.18,
+              0x8f7ae8,
+              q.x * 0.5,
+              -0.1,
+              q.z * 0.5,
+              { opacity: 0.35, noShadow: true },
+            );
+            beam.material = beam.material.clone();
+            M3.anims.push({
+              root: null,
+              fn: function (t) {
+                beam.material.opacity = 0.22 + (Math.sin(t * 2 + q.x + q.z) + 1) * 0.1;
+              },
+            });
+          });
+        } else {
+          m3Flag(g, nc.getHex(), 3.4, 1.5, 0.95, -size / 2 + 0.5, -size / 2 + 0.5);
+          const stats = m3TextSprite("", { color: "#dfe7ff", scale: 0.72, font: 54 });
+          stats.position.set(0, 5.0, 0);
+          g.add(stats);
+          M3.statSprites[key] = stats;
+
+          // 4×4 타일
+          M3.tiles[key] = [];
+          for (let i = 0; i < 16; i++) {
+            const r = Math.floor(i / 4),
+              c = i % 4;
+            const x = (c - 1.5) * M3_STEP,
+              z = (r - 1.5) * M3_STEP;
+            const base = new THREE.Mesh(
+              m3Geo("BoxGeometry", M3_TILE - 0.16, 0.26, M3_TILE - 0.16),
+              m3TerrainMat(m3TopColor(key, i, ""), 0.9),
+            );
+            base.position.set(x, 0.13, z);
+            base.castShadow = false;
+            base.receiveShadow = true;
+            base.userData = { nation: key, idx: i };
+            g.add(base);
+            const content = new THREE.Group();
+            content.position.set(x, 0.27, z);
+            g.add(content);
+            M3.tiles[key][i] = { base: base, content: content, sig: "__init__" };
+            M3.pick.push(base);
+          }
+        }
+        M3.scene.add(g);
+      }
+
+      /* ---------- 월드(하늘/바다/구름/별) ---------- */
+      function m3BuildWorld() {
+        const sc = M3.scene;
+        // 맑은 한낮의 하늘 — 사용자 요청으로 우주/구름/별 제거
+        sc.background = new THREE.Color(0x8ec6ef);
+        sc.fog = new THREE.Fog(0x9ed0f2, 55, 230);
+
+        sc.add(new THREE.HemisphereLight(0xd6e8ff, 0x6d6247, 0.95));
+        const dir = new THREE.DirectionalLight(0xfff3dc, 1.35);
+        dir.position.set(38, 58, 24);
+        dir.castShadow = true;
+        dir.shadow.mapSize.set(2048, 2048);
+        dir.shadow.camera.left = -36;
+        dir.shadow.camera.right = 36;
+        dir.shadow.camera.top = 36;
+        dir.shadow.camera.bottom = -36;
+        dir.shadow.camera.far = 160;
+        dir.shadow.bias = -0.0004;
+        sc.add(dir);
+
+        // 태양 (글로우 스프라이트)
+        const glow = m3GlowTex();
+        if (glow) {
+          const sun = new THREE.Sprite(
+            new THREE.SpriteMaterial({
+              map: glow,
+              transparent: true,
+              depthWrite: false,
+              fog: false,
+            }),
+          );
+          sun.scale.set(46, 46, 1);
+          sun.position.set(150, 175, 75);
+          sc.add(sun);
+        }
+
+        // 한낮의 바다 (미세 파랑 노이즈)
+        const seaNoise = m3NoiseTex("#ffffff", "#0a2a4a", 1400, 42);
+        const seaOpt = { color: 0x2e6f9e, roughness: 0.55, metalness: 0.05 };
+        if (seaNoise) seaOpt.map = seaNoise;
+        const sea = new THREE.Mesh(
+          m3Geo("PlaneGeometry", 620, 620),
+          new THREE.MeshStandardMaterial(seaOpt),
+        );
+        sea.rotation.x = -Math.PI / 2;
+        sea.position.y = -5.6;
+        sea.receiveShadow = true;
+        sc.add(sea);
+
+        m3BuildIsland("un");
+        NATION_ORDER.forEach(m3BuildIsland);
+
+        // 호버 하이라이트 틀
+        const hl = new THREE.Group();
+        const th = 0.1;
+        [
+          [0, -0.95],
+          [0, 0.95],
+        ].forEach(function (o) {
+          m3B(hl, M3_TILE, 0.1, th, 0xffffff, o[0], 0, o[1], { noShadow: true });
+        });
+        [
+          [-0.95, 0],
+          [0.95, 0],
+        ].forEach(function (o) {
+          m3B(hl, th, 0.1, M3_TILE, 0xffffff, o[0], 0, o[1], { noShadow: true });
+        });
+        hl.visible = false;
+        hl.children.forEach(function (m) {
+          m.material = m.material.clone();
+          m.material.transparent = true;
+        });
+        M3.hl = hl;
+        M3.scene.add(hl);
+        M3.anims.push({
+          root: null,
+          fn: function (t) {
+            if (M3.hl.visible)
+              M3.hl.children.forEach(function (m) {
+                m.material.opacity = 0.65 + Math.sin(t * 5) * 0.3;
+              });
+          },
+        });
+      }
+
+      /* ---------- 상태 → 3D 동기화 ---------- */
+      function syncMap3D() {
+        if (!M3.inited || !state.nations) return;
+        NATION_ORDER.forEach(function (key) {
+          const n = state.nations[key];
+          if (!n || !M3.tiles[key]) return;
+          for (let i = 0; i < 16; i++) {
+            const raw = n.grid && n.grid[i] ? n.grid[i] : "";
+            const mine = ME && ME.role === "student" && ME.nation === key ? 1 : 0;
+            const sig = raw + "|" + mine;
+            const t = M3.tiles[key][i];
+            if (t.sig !== sig) {
+              t.sig = sig;
+              t.base.material = m3TerrainMat(m3TopColor(key, i, raw), 0.9);
+              m3BuildTileContent(key, i, raw);
+            }
+          }
+          if (M3.statSprites[key])
+            M3.statSprites[key].userData.set(
+              "👥" + fmt(n.pop) + "  💰" + fmt(n.eco) + "  🎭" + fmt(n.cul),
+            );
+        });
+        if (M3.turnSprite)
+          M3.turnSprite.userData.set("Turn " + ((state.meta && state.meta.turn) || 1));
+      }
+
+      /* ---------- 카메라 ---------- */
+      function m3Pitch() {
+        const d = M3.cam.dist;
+        return THREE.MathUtils.degToRad(
+          35 + Math.min(1, Math.max(0, (d - 8) / 100)) * 27,
+        );
+      }
+      function m3ApplyCam() {
+        const c = M3.cam,
+          pitch = m3Pitch();
+        M3.camera.position.set(
+          c.tx,
+          Math.sin(pitch) * c.dist,
+          c.tz + Math.cos(pitch) * c.dist,
+        );
+        M3.camera.lookAt(c.tx, 0.4, c.tz);
+      }
+      function m3FlyTo(key) {
+        const c = M3.cam;
+        if (key === "world") {
+          c.gtx = 0;
+          c.gtz = 0;
+          c.gdist = 92;
+        } else {
+          const p = M3_POS[key];
+          if (!p) return;
+          c.gtx = p.x;
+          c.gtz = p.z + 1.5;
+          c.gdist = key === "un" ? 14 : 15.5;
+        }
+      }
+
+      /* ---------- 현재 위치 배너 ---------- */
+      function m3UpdateLoc() {
+        let key;
+        if (M3.mode === "walk") {
+          key = "walk:" + M3.walk.island;
+        } else {
+          const c = M3.cam;
+          key = "world";
+          if (c.dist < 46) {
+          let best = 13,
+            bk = "world";
+          Object.keys(M3_POS).forEach(function (k) {
+            const p = M3_POS[k];
+            const d = Math.hypot(c.tx - p.x, c.tz - p.z);
+            if (d < best) {
+              best = d;
+              bk = k;
+            }
+          });
+            key = bk;
+          }
+        }
+        if (key === M3.locKey) return;
+        M3.locKey = key;
+        const el = $("#map3dLoc");
+        if (!el) return;
+        if (key.indexOf("walk:") === 0) {
+          const kk = key.slice(5);
+          if (kk === "un") {
+            el.textContent = "🚶 UN 허브 산책 중";
+            el.style.color = "#c4b5fd";
+          } else if (NATIONS[kk]) {
+            const homeW = myNationKey() === kk;
+            el.textContent =
+              "🚶 " + NATIONS[kk].name + (homeW ? " (우리나라)" : " 여행 중");
+            el.style.color = NATIONS[kk].color;
+          }
+          return;
+        }
+        if (key === "world") {
+          el.textContent = "🌍 세계 전도";
+          el.style.color = "var(--ink)";
+        } else if (key === "un") {
+          el.textContent = "🕊️ UN 허브";
+          el.style.color = "#c4b5fd";
+        } else {
+          const home = myNationKey() === key;
+          el.textContent = (home ? "🏠 " : "📍 ") + NATIONS[key].name + (home ? " (우리나라)" : " 방문 중");
+          el.style.color = NATIONS[key].color;
+        }
+      }
+
+      /* ---------- 렌더 루프 ---------- */
+      function m3Loop() {
+        if (!M3.active) return;
+        M3.raf = requestAnimationFrame(m3Loop);
+        const dt = Math.min(M3.clock.getDelta(), 0.05);
+        const t = M3.clock.elapsedTime;
+        if (M3.mode === "walk") {
+          m3WalkUpdate(dt, t);
+        } else {
+          const c = M3.cam;
+          const k = 1 - Math.exp(-5 * dt);
+          c.tx += (c.gtx - c.tx) * k;
+          c.tz += (c.gtz - c.tz) * k;
+          c.dist += (c.gdist - c.dist) * k;
+          m3ApplyCam();
+        }
+        for (let i = 0; i < M3.anims.length; i++) M3.anims[i].fn(t, dt);
+        if (M3.mode !== "walk" && M3.hoverDirty) m3ProcessHover();
+        m3UpdateLoc();
+        M3.renderer.render(M3.scene, M3.camera);
+      }
+      function map3dSetActive(on) {
+        if (on === M3.active) return;
+        M3.active = on;
+        if (on && M3.inited) {
+          M3.clock.getDelta();
+          m3Loop();
+        } else if (!on) {
+          if (M3.raf) cancelAnimationFrame(M3.raf);
+          M3.raf = 0;
+          if (M3.walk.locked && document.exitPointerLock)
+            document.exitPointerLock();
+        }
+      }
+
+      /* ---------- 호버/클릭 ---------- */
+      const m3Raycaster = window.THREE ? new THREE.Raycaster() : null;
+      function m3PickAt(clientX, clientY) {
+        const rect = M3.renderer.domElement.getBoundingClientRect();
+        M3.hoverNDC.set(
+          ((clientX - rect.left) / rect.width) * 2 - 1,
+          -((clientY - rect.top) / rect.height) * 2 + 1,
+        );
+        m3Raycaster.setFromCamera(M3.hoverNDC, M3.camera);
+        const hit = m3Raycaster.intersectObjects(M3.pick, false);
+        return hit.length ? hit[0].object : null;
+      }
+      function m3ProcessHover() {
+        M3.hoverDirty = false;
+        const tip = $("#map3dTip");
+        const obj =
+          M3.ptrs.size === 0 ? m3PickAt(M3.hoverXY.x, M3.hoverXY.y) : null;
+        M3.hover = obj;
+        const cv = M3.renderer.domElement;
+        if (!obj) {
+          M3.hl.visible = false;
+          if (tip) tip.style.display = "none";
+          cv.style.cursor = "grab";
+          return;
+        }
+        cv.style.cursor = "pointer";
+        // 하이라이트 이동
+        const wp = new THREE.Vector3();
+        obj.getWorldPosition(wp);
+        M3.hl.position.set(wp.x, 0.32, wp.z);
+        M3.hl.visible = true;
+        const key = obj.userData.nation,
+          idx = obj.userData.idx;
+        const mine = ME && ME.role === "student" && ME.nation === key;
+        const n = state.nations ? state.nations[key] : null;
+        const raw = n && n.grid && n.grid[idx] ? n.grid[idx] : "";
+        const hlColor = new THREE.Color(
+          mine && !raw ? NATIONS[key].color : "#ffffff",
+        );
+        M3.hl.children.forEach(function (m) {
+          m.material.color.copy(hlColor);
+        });
+        // 툴팁
+        if (!tip) return;
+        let h =
+          '<b style="color:' +
+          NATIONS[key].color +
+          '">' +
+          escapeHTML(NATIONS[key].name) +
+          "</b> · " +
+          (idx + 1) +
+          "번 영토" +
+          (idx < CAPITAL_TILES ? " 👑수도" : "") +
+          "<br>";
+        if (isConquered(raw)) {
+          const cq = NATIONS[conquerorOf(raw)];
+          const cb = conqueredBuilding(raw);
+          h +=
+            "🚩 <b>" +
+            escapeHTML(cq ? cq.name : "적국") +
+            "</b> 점령지" +
+            (cb && BMAP[cb] ? " · " + BMAP[cb].icon + " " + escapeHTML(BMAP[cb].name) : "");
+        } else if (raw && BMAP[raw]) {
+          const b = BMAP[raw];
+          h +=
+            b.icon +
+            " <b>" +
+            escapeHTML(b.name) +
+            "</b>" +
+            (b.defense ? " 🛡️방어시설" : "") +
+            '<br><span style="color:var(--ink-dim)">' +
+            escapeHTML(b.desc) +
+            "</span>";
+        } else {
+          h += mine
+            ? '<span style="color:#86efac">빈 영토 — 클릭해서 건설! 🏗️</span>'
+            : '<span style="color:var(--ink-dim)">빈 영토</span>';
+        }
+        tip.innerHTML = h;
+        tip.style.display = "block";
+        const vpr = $("#map3dViewport").getBoundingClientRect();
+        let tx = M3.hoverXY.x - vpr.left + 16,
+          ty = M3.hoverXY.y - vpr.top + 16;
+        tip.style.left = Math.min(tx, vpr.width - 250) + "px";
+        tip.style.top = Math.min(ty, vpr.height - 110) + "px";
+      }
+
+      /* ---------- 포인터 조작 (팬/핀치/클릭) ---------- */
+      function m3InitControls() {
+        const cv = M3.renderer.domElement;
+        function pinchDist() {
+          const a = Array.from(M3.ptrs.values());
+          return Math.hypot(a[0].x - a[1].x, a[0].y - a[1].y);
+        }
+        cv.addEventListener("pointerdown", function (e) {
+          if (M3.mode === "walk") return m3WalkPointerDown(e, cv);
+          cv.setPointerCapture(e.pointerId);
+          M3.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+          if (M3.ptrs.size === 1) {
+            M3.dragging = false;
+            M3.downXY = { x: e.clientX, y: e.clientY };
+            cv.classList.add("dragging");
+          } else if (M3.ptrs.size === 2) {
+            M3.pinchD = pinchDist();
+          }
+          const tip = $("#map3dTip");
+          if (tip) tip.style.display = "none";
+          M3.hl.visible = false;
+        });
+        cv.addEventListener("pointermove", function (e) {
+          if (M3.mode === "walk") return m3WalkPointerMove(e);
+          if (M3.ptrs.has(e.pointerId)) {
+            const prev = M3.ptrs.get(e.pointerId);
+            const dx = e.clientX - prev.x,
+              dy = e.clientY - prev.y;
+            M3.ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY });
+            if (M3.ptrs.size === 1) {
+              if (
+                !M3.dragging &&
+                Math.hypot(e.clientX - M3.downXY.x, e.clientY - M3.downXY.y) > 7
+              )
+                M3.dragging = true;
+              if (M3.dragging) {
+                const rect = cv.getBoundingClientRect();
+                const wpp =
+                  (2 *
+                    M3.cam.dist *
+                    Math.tan(THREE.MathUtils.degToRad(M3.camera.fov / 2))) /
+                  rect.height;
+                const c = M3.cam;
+                c.gtx = c.tx = clamp(c.tx - dx * wpp, -34, 34);
+                const dzw = (dy * wpp) / Math.max(0.4, Math.sin(m3Pitch()));
+                c.gtz = c.tz = clamp(c.tz - dzw, -34, 34);
+              }
+            } else if (M3.ptrs.size === 2) {
+              const d = pinchDist();
+              if (M3.pinchD > 0)
+                M3.cam.gdist = clamp((M3.cam.gdist * M3.pinchD) / d, 8, 120);
+              M3.pinchD = d;
+            }
+          } else if (e.pointerType === "mouse") {
+            M3.hoverXY.x = e.clientX;
+            M3.hoverXY.y = e.clientY;
+            M3.hoverDirty = true;
+          }
+          if (e.pointerType === "mouse" && M3.ptrs.size === 0) return;
+          M3.hoverXY.x = e.clientX;
+          M3.hoverXY.y = e.clientY;
+        });
+        function up(e) {
+          if (M3.mode === "walk") return m3WalkPointerUp(e);
+          const was = M3.ptrs.has(e.pointerId);
+          M3.ptrs.delete(e.pointerId);
+          if (M3.ptrs.size === 0) cv.classList.remove("dragging");
+          if (was && M3.ptrs.size === 0 && !M3.dragging && M3.downXY) {
+            const obj = m3PickAt(e.clientX, e.clientY);
+            if (obj) openBuildModal(obj.userData.nation, obj.userData.idx);
+          }
+          M3.downXY = null;
+          M3.dragging = false;
+        }
+        cv.addEventListener("pointerup", up);
+        cv.addEventListener("pointercancel", up);
+        cv.addEventListener(
+          "wheel",
+          function (e) {
+            e.preventDefault();
+            if (M3.mode === "walk") return;
+            M3.cam.gdist = clamp(
+              M3.cam.gdist * (e.deltaY > 0 ? 1.13 : 1 / 1.13),
+              8,
+              120,
+            );
+          },
+          { passive: false },
+        );
+        cv.addEventListener("pointerleave", function () {
+          M3.hl.visible = false;
+          const tip = $("#map3dTip");
+          if (tip) tip.style.display = "none";
+        });
+      }
+
+      /* ---------- 초기화 ---------- */
+      function initMap3D() {
+        if (M3.inited) return true;
+        if (M3.failed || !window.THREE) {
+          M3.failed = true;
+          return false;
+        }
+        try {
+          const cv = $("#map3dCanvas");
+          M3.renderer = new THREE.WebGLRenderer({
+            canvas: cv,
+            antialias: true,
+            powerPreference: "high-performance",
+          });
+          M3.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+          M3.renderer.outputEncoding = THREE.sRGBEncoding;
+          M3.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+          M3.renderer.toneMappingExposure = 1.12;
+          M3.renderer.shadowMap.enabled = true;
+          M3.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+          M3.scene = new THREE.Scene();
+          M3.camera = new THREE.PerspectiveCamera(46, 1, 0.5, 500);
+          M3.clock = new THREE.Clock();
+          m3BuildWorld();
+          m3InitControls();
+          m3InitWalkControls();
+          M3.coarse = !!(
+            window.matchMedia && window.matchMedia("(pointer: coarse)").matches
+          );
+          if (M3.coarse) {
+            const vp0 = $("#map3dViewport");
+            if (vp0) vp0.classList.add("coarse");
+          }
+          m3Resize();
+          const ro = new ResizeObserver(m3Resize);
+          ro.observe($("#map3dViewport"));
+          M3.inited = true;
+          return true;
+        } catch (err) {
+          console.warn("3D init failed → 2D fallback", err);
+          M3.failed = true;
+          return false;
+        }
+      }
+      function m3Resize() {
+        if (!M3.renderer) return;
+        const vp = $("#map3dViewport");
+        const w = vp.clientWidth,
+          h = vp.clientHeight;
+        if (!w || !h) return;
+        M3.renderer.setSize(w, h, false);
+        M3.camera.aspect = w / h;
+        M3.camera.updateProjectionMatrix();
+      }
+
+
+      /* ============================================================
+         🚶 1인칭 걷기 모드 (마인크래프트 스타일)
+         ─ WASD/조이스틱 이동, 마우스 시점, 점프/중력, 건물 충돌
+         ─ 십자선으로 타일 조준 → 클릭/E → 기존 건설 모달
+         ============================================================ */
+      const M3_EYE = 0.55; // 눈높이
+      const M3_ISLAND_HALF =
+        (M3_GRID * M3_TILE + (M3_GRID - 1) * M3_GAP + 1.7) / 2 - 0.55;
+
+      function m3GroundY(key, lx, lz) {
+        if (key === "un") {
+          const d = Math.hypot(lx, lz);
+          if (d < 1.15) return 0.85; // 연단 2층
+          if (d < 1.62) return 0.5; // 연단 1층
+          return 0;
+        }
+        const ext = 1.5 * M3_STEP + M3_TILE / 2; // 타일 광장 범위
+        if (Math.abs(lx) < ext && Math.abs(lz) < ext) return 0.27;
+        return 0;
+      }
+
+      function m3Collide(key, px, pz) {
+        const p = M3_POS[key];
+        if (!p || key === "un" || !state.nations || !state.nations[key])
+          return { x: px, z: pz };
+        const grid = state.nations[key].grid || [];
+        let lx = px - p.x,
+          lz = pz - p.z;
+        const R = 0.85;
+        for (let r = 0; r < 4; r++)
+          for (let c = 0; c < 4; c++) {
+            const raw = grid[r * 4 + c];
+            if (!raw) continue;
+            // 빈 점령지(깃발만)는 통과 가능
+            if (isConquered(raw) && !conqueredBuilding(raw)) continue;
+            const cx = (c - 1.5) * M3_STEP,
+              cz = (r - 1.5) * M3_STEP;
+            let dx = lx - cx,
+              dz = lz - cz;
+            const d = Math.hypot(dx, dz);
+            if (d < R) {
+              if (d < 0.0001) {
+                dx = R;
+                dz = 0;
+              } else {
+                dx = (dx / d) * R;
+                dz = (dz / d) * R;
+              }
+              lx = cx + dx;
+              lz = cz + dz;
+            }
+          }
+        return { x: p.x + lx, z: p.z + lz };
+      }
+
+      function m3ShowWalkHint(short) {
+        const el = $("#m3WalkHint");
+        if (!el) return;
+        el.innerHTML = M3.coarse
+          ? "🕹️ 왼쪽 조이스틱: 이동 · 화면 드래그: 시점<br>🔨 버튼: 건설 · ⬆️: 점프"
+          : short
+            ? "🖱️ 드래그로 시점 회전 · <b>← →</b> 키로도 회전됩니다"
+            : "🖱️ 클릭: 시점 고정 · 마우스/드래그: 둘러보기<br><b>WASD</b> 이동 · <b>← →</b> 좌우 회전 · <b>Shift</b> 달리기<br><b>Space</b> 점프 · <b>E</b>/클릭 건설 · <b>ESC</b> 해제";
+        el.style.display = "block";
+        clearTimeout(M3._hintTimer);
+        M3._hintTimer = setTimeout(function () {
+          el.style.display = "none";
+        }, short ? 3500 : 7000);
+      }
+
+      function m3EnterWalk(key, drop) {
+        if (key === "un") key = myNationKey(); // UN은 중앙 상징물 — 걷기 제외
+        if (!M3.inited || !M3_POS[key]) return;
+        const w = M3.walk;
+        M3.mode = "walk";
+        w.island = key;
+        const p = M3_POS[key];
+        w.x = p.x;
+        w.z = p.z + (key === "un" ? 2.4 : 3.6);
+        w.yaw = 0; // 섬 중앙(북쪽)을 바라보고 시작
+        w.pitch = -0.05;
+        w.vy = 0;
+        w.y = drop ? 22 : m3GroundY(key, 0, w.z - p.z);
+        w.onGround = !drop;
+        w.keys = {};
+        w.joyF = w.joyR = 0;
+        w.jumpReq = false;
+        w.target = null;
+        const vp = $("#map3dViewport");
+        if (vp) vp.classList.add("walkmode");
+        try {
+          localStorage.setItem("ebs_map_view3d", "walk");
+        } catch (e) {}
+        M3.camera.rotation.order = "YXZ";
+        M3.hl.visible = false;
+        const tip = $("#map3dTip");
+        if (tip) tip.style.display = "none";
+        M3.locKey = "";
+        m3ShowWalkHint(false);
+        m3BuildDock();
+        if (drop) {
+          const nm = NATIONS[key] ? NATIONS[key].name : "UN 허브";
+          setTimeout(function () {
+            toast("🪂 <b>" + nm + "</b> 상공에서 낙하! 착지 후 자유롭게 걸어 다녀보세요.", "good");
+          }, 400);
+        }
+      }
+
+      function m3ExitWalk(toWorld) {
+        if (M3.mode !== "walk") return;
+        M3.mode = "orbit";
+        const w = M3.walk;
+        const p = M3_POS[w.island] || { x: 0, z: 0 };
+        M3.cam.tx = M3.cam.gtx = p.x;
+        M3.cam.tz = M3.cam.gtz = p.z + 1.5;
+        M3.cam.dist = 11;
+        M3.cam.gdist = 15.5;
+        if (toWorld === "world") m3FlyTo("world");
+        const vp = $("#map3dViewport");
+        if (vp) vp.classList.remove("walkmode");
+        try {
+          localStorage.setItem("ebs_map_view3d", "orbit");
+        } catch (e) {}
+        if (w.locked && document.exitPointerLock) document.exitPointerLock();
+        const tg = $("#m3Target");
+        if (tg) tg.style.display = "none";
+        const hint = $("#m3WalkHint");
+        if (hint) hint.style.display = "none";
+        M3.hl.visible = false;
+        M3.locKey = "";
+        m3BuildDock();
+      }
+
+      /* 십자선 조준 → 타일 타겟팅 */
+      function m3CrossUpdate() {
+        if (!M3.zero2) {
+          M3.zero2 = new THREE.Vector2(0, 0);
+          M3.tmpV = new THREE.Vector3();
+        }
+        m3Raycaster.setFromCamera(M3.zero2, M3.camera);
+        const hits = m3Raycaster.intersectObjects(M3.pick, false);
+        const el = $("#m3Target");
+        const w = M3.walk;
+        if (hits.length && hits[0].distance < 7.5) {
+          const obj = hits[0].object;
+          w.target = obj;
+          obj.getWorldPosition(M3.tmpV);
+          M3.hl.position.set(M3.tmpV.x, 0.34, M3.tmpV.z);
+          M3.hl.visible = true;
+          const key = obj.userData.nation,
+            idx = obj.userData.idx;
+          const mine = ME && ME.role === "student" && ME.nation === key;
+          const n = state.nations ? state.nations[key] : null;
+          const raw = n && n.grid && n.grid[idx] ? n.grid[idx] : "";
+          let label =
+            NATIONS[key].name + " " + (idx + 1) + "번" + (idx < CAPITAL_TILES ? " 👑" : "") + " · ";
+          if (isConquered(raw)) {
+            const cq = NATIONS[conquerorOf(raw)];
+            const cb = conqueredBuilding(raw);
+            label += "🚩 " + (cq ? cq.name : "적국") + " 점령지" + (cb && BMAP[cb] ? " (" + BMAP[cb].name + ")" : "");
+          } else if (raw && BMAP[raw]) {
+            label += BMAP[raw].icon + " " + BMAP[raw].name + (BMAP[raw].defense ? " 🛡️" : "");
+          } else {
+            label += mine ? "빈 영토 — E 또는 클릭으로 건설 🏗️" : "빈 영토";
+          }
+          M3.hl.children.forEach(function (m) {
+            m.material.color.set(mine && !raw ? NATIONS[key].color : "#ffffff");
+          });
+          if (el) {
+            el.textContent = label;
+            el.style.display = "block";
+          }
+        } else {
+          w.target = null;
+          M3.hl.visible = false;
+          if (el) el.style.display = "none";
+        }
+      }
+
+      function m3Interact() {
+        if (M3.mode !== "walk" || !M3.walk.target) return;
+        const u = M3.walk.target.userData;
+        if (M3.walk.locked && document.exitPointerLock) document.exitPointerLock();
+        openBuildModal(u.nation, u.idx);
+      }
+
+      /* 프레임 업데이트: 이동/중력/충돌/카메라 */
+      function m3WalkUpdate(dt, t) {
+        const w = M3.walk,
+          cam = M3.camera;
+        let f =
+          (w.keys.KeyW || w.keys.ArrowUp ? 1 : 0) -
+          (w.keys.KeyS || w.keys.ArrowDown ? 1 : 0) +
+          w.joyF;
+        let r = (w.keys.KeyD ? 1 : 0) - (w.keys.KeyA ? 1 : 0) + w.joyR;
+        // ← → 화살표 = 좌우 시선 회전 (키보드만으로도 둘러보기 가능)
+        const turn = (w.keys.ArrowRight ? 1 : 0) - (w.keys.ArrowLeft ? 1 : 0);
+        if (turn) w.yaw -= turn * 2.3 * dt;
+        const L = Math.hypot(f, r);
+        if (L > 1) {
+          f /= L;
+          r /= L;
+        }
+        const run = w.keys.ShiftLeft || w.keys.ShiftRight;
+        const sp = run ? 5.4 : 3.0;
+        const s = Math.sin(w.yaw),
+          c = Math.cos(w.yaw);
+        let nx = w.x + (-s * f + c * r) * sp * dt;
+        let nz = w.z + (-c * f - s * r) * sp * dt;
+        // 섬 경계 (투명 벽 — 낙사 방지)
+        const p = M3_POS[w.island];
+        const half = w.island === "un" ? 2.9 : M3_ISLAND_HALF;
+        nx = clamp(nx, p.x - half, p.x + half);
+        nz = clamp(nz, p.z - half, p.z + half);
+        // 건물 충돌
+        const cp = m3Collide(w.island, nx, nz);
+        w.x = cp.x;
+        w.z = cp.z;
+        // 점프 & 중력
+        const gy = m3GroundY(w.island, w.x - p.x, w.z - p.z);
+        if (w.jumpReq && w.onGround) {
+          w.vy = 4.8;
+          w.onGround = false;
+        }
+        w.jumpReq = false;
+        w.vy -= 13.5 * dt;
+        w.y += w.vy * dt;
+        if (w.y <= gy) {
+          w.y = gy;
+          w.vy = 0;
+          w.onGround = true;
+        } else {
+          w.onGround = false;
+        }
+        // 걸음 흔들림(헤드밥)
+        const moving = L > 0.05 && w.onGround;
+        w.bobT += dt * (moving ? (run ? 11.5 : 8.5) : 0);
+        const bob = moving ? Math.sin(w.bobT) * 0.035 : 0;
+        cam.rotation.order = "YXZ";
+        cam.rotation.y = w.yaw;
+        cam.rotation.x = w.pitch;
+        cam.rotation.z = 0;
+        cam.position.set(w.x, w.y + M3_EYE + bob, w.z);
+        m3CrossUpdate();
+      }
+
+      /* 걷기 모드 입력 (키보드/포인터락/드래그룩/조이스틱) */
+      function m3WalkPointerDown(e, cv) {
+        const w = M3.walk;
+        if (e.pointerType === "mouse") {
+          if (w.locked) {
+            if (e.button === 0) m3Interact();
+            return;
+          }
+          if (cv.requestPointerLock && !w.lockBlocked) {
+            try {
+              const pr = cv.requestPointerLock();
+              if (pr && pr.catch)
+                pr.catch(function () {
+                  w.lockBlocked = true;
+                });
+            } catch (er) {
+              w.lockBlocked = true;
+            }
+          }
+          // 잠금 미지원/거부 대비 드래그 시점 준비
+          w.lookId = e.pointerId;
+          w.lookLast = { x: e.clientX, y: e.clientY };
+          try {
+            cv.setPointerCapture(e.pointerId);
+          } catch (er) {}
+        } else {
+          // 터치: 화면 드래그 = 시점
+          w.lookId = e.pointerId;
+          w.lookLast = { x: e.clientX, y: e.clientY };
+          try {
+            cv.setPointerCapture(e.pointerId);
+          } catch (er) {}
+        }
+      }
+      function m3WalkPointerMove(e) {
+        const w = M3.walk;
+        if (document.pointerLockElement) return; // 잠금 중엔 movementX로 처리
+        if (e.pointerId !== w.lookId || !w.lookLast) return;
+        const k = e.pointerType === "mouse" ? 0.0042 : 0.005;
+        w.yaw -= (e.clientX - w.lookLast.x) * k;
+        w.pitch = clamp(w.pitch - (e.clientY - w.lookLast.y) * k, -1.35, 1.35);
+        w.lookLast = { x: e.clientX, y: e.clientY };
+      }
+      function m3WalkPointerUp(e) {
+        const w = M3.walk;
+        if (e.pointerId === w.lookId) {
+          w.lookId = -1;
+          w.lookLast = null;
+        }
+      }
+
+      function m3InitWalkControls() {
+        const cv = M3.renderer.domElement;
+        // 포인터 락 상태 추적
+        document.addEventListener("pointerlockchange", function () {
+          M3.walk.locked = document.pointerLockElement === cv;
+          if (M3.mode === "walk" && !M3.walk.locked && !M3.coarse)
+            m3ShowWalkHint(true);
+        });
+        document.addEventListener("mousemove", function (e) {
+          if (M3.mode !== "walk") return;
+          // 캐시 플래그 대신 브라우저 상태를 직접 신뢰 (동기화 누락 방지)
+          if (document.pointerLockElement !== cv) return;
+          const w = M3.walk;
+          w.yaw -= (e.movementX || 0) * 0.0024;
+          w.pitch = clamp(w.pitch - (e.movementY || 0) * 0.0024, -1.35, 1.35);
+        });
+        document.addEventListener("pointerlockerror", function () {
+          M3.walk.lockBlocked = true; // 이 환경은 잠금 불가 → 드래그 시점 사용
+          if (M3.mode === "walk") m3ShowWalkHint(true);
+        });
+        // 키보드
+        window.addEventListener("keydown", function (e) {
+          if (M3.mode !== "walk" || currentTab !== "map") return;
+          const tg = e.target;
+          if (
+            tg &&
+            (tg.tagName === "INPUT" || tg.tagName === "TEXTAREA" || tg.tagName === "SELECT" || tg.isContentEditable)
+          )
+            return;
+          M3.walk.keys[e.code] = true;
+          if (e.code === "Space") {
+            M3.walk.jumpReq = true;
+            e.preventDefault();
+          }
+          if (e.code === "KeyE") m3Interact();
+          if (
+            e.code === "ArrowUp" ||
+            e.code === "ArrowDown" ||
+            e.code === "ArrowLeft" ||
+            e.code === "ArrowRight"
+          )
+            e.preventDefault();
+        });
+        window.addEventListener("keyup", function (e) {
+          M3.walk.keys[e.code] = false;
+        });
+        window.addEventListener("blur", function () {
+          M3.walk.keys = {};
+          M3.walk.joyF = M3.walk.joyR = 0;
+        });
+        // 모바일 조이스틱
+        const joy = $("#m3Joy"),
+          knob = $("#m3JoyKnob");
+        if (joy && joy.addEventListener) {
+          let jid = -1;
+          function jset(e) {
+            const r = joy.getBoundingClientRect();
+            const cx = r.left + r.width / 2,
+              cy = r.top + r.height / 2;
+            let dx = e.clientX - cx,
+              dy = e.clientY - cy;
+            const d = Math.hypot(dx, dy),
+              max = r.width / 2 - 10;
+            if (d > max) {
+              dx = (dx / d) * max;
+              dy = (dy / d) * max;
+            }
+            if (knob)
+              knob.style.transform =
+                "translate(calc(-50% + " + dx + "px), calc(-50% + " + dy + "px))";
+            M3.walk.joyR = dx / max;
+            M3.walk.joyF = -dy / max;
+          }
+          joy.addEventListener("pointerdown", function (e) {
+            jid = e.pointerId;
+            try {
+              joy.setPointerCapture(jid);
+            } catch (er) {}
+            jset(e);
+            e.preventDefault();
+          });
+          joy.addEventListener("pointermove", function (e) {
+            if (e.pointerId === jid) jset(e);
+          });
+          function jend(e) {
+            if (e.pointerId !== jid) return;
+            jid = -1;
+            M3.walk.joyF = M3.walk.joyR = 0;
+            if (knob) knob.style.transform = "translate(-50%,-50%)";
+          }
+          joy.addEventListener("pointerup", jend);
+          joy.addEventListener("pointercancel", jend);
+        }
+        const bj = $("#m3BtnJump");
+        if (bj && bj.addEventListener)
+          bj.addEventListener("pointerdown", function (e) {
+            M3.walk.jumpReq = true;
+            e.preventDefault();
+          });
+        const bu = $("#m3BtnUse");
+        if (bu && bu.addEventListener)
+          bu.addEventListener("pointerdown", function (e) {
+            m3Interact();
+            e.preventDefault();
+          });
+      }
+
+      /* ---------- 방문 도크 ---------- */
+      function m3BuildDock() {
+        const d = $("#map3dDock");
+        if (!d) return;
+        const walk = M3.mode === "walk";
+        const home = myNationKey();
+        let h =
+          '<button class="visitbtn" style="--vc:' +
+          (NATIONS[home] ? NATIONS[home].color : "#cbd5f5") +
+          '" data-fly="' +
+          home +
+          '">🏠 우리나라</button>';
+        NATION_ORDER.forEach(function (k) {
+          if (k === home) return;
+          h +=
+            '<button class="visitbtn" style="--vc:' +
+            NATIONS[k].color +
+            '" data-fly="' +
+            k +
+            '">' +
+            (walk ? "🚕 " : "🚀 ") +
+            escapeHTML(NATIONS[k].name) +
+            "</button>";
+        });
+        if (walk) {
+          h +=
+            '<button class="visitbtn" style="--vc:#fca5a5" data-fly="__orbit">🛰️ 관제 모드</button>';
+        } else {
+          h +=
+            '<button class="visitbtn" data-fly="world">🌍 전체</button>' +
+            '<button class="visitbtn" style="--vc:#86efac" data-fly="__walk">🚶 걷기 모드</button>';
+        }
+        d.innerHTML = h;
+        d.querySelectorAll(".visitbtn").forEach(function (b) {
+          b.onclick = function () {
+            const k = b.dataset.fly;
+            if (k === "__walk") {
+              let at = home;
+              if (M3.locKey && M3_POS[M3.locKey]) at = M3.locKey;
+              m3EnterWalk(at, false);
+              return;
+            }
+            if (k === "__orbit") {
+              m3ExitWalk();
+              return;
+            }
+            if (M3.mode === "walk") {
+              m3EnterWalk(k, false);
+              if (k !== home)
+                toast(
+                  "🚕 <b>" +
+                    (NATIONS[k] ? NATIONS[k].name : "UN 허브") +
+                    "</b>(으)로 이동했습니다!",
+                  "good",
+                );
+            } else {
+              m3FlyTo(k);
+              if (NATIONS[k] && k !== home)
+                toast(
+                  "🛫 <b>" + NATIONS[k].name + "</b>(으)로 여행을 떠납니다!",
+                  "good",
+                );
+            }
+          };
+        });
+      }
+
+      /* ---------- 메인 renderMap 디스패처 ---------- */
+      function renderMap() {
+        const use3d = m3On();
+        const v2 = $("#mapViewport"),
+          v3 = $("#map3dViewport");
+        if (v2) v2.style.display = use3d ? "none" : "";
+        if (v3) v3.style.display = use3d ? "" : "none";
+        const tg = $("#mapModeToggle");
+        if (tg)
+          tg.innerHTML = M3.failed
+            ? "🗺️ 2D 지도"
+            : use3d
+              ? "🗺️ 2D 지도"
+              : "🧊 3D 월드";
+        if (tg && M3.failed) tg.style.display = "none";
+
+        if (!use3d) {
+          if (M3.mode === "walk") m3ExitWalk();
+          map3dSetActive(false);
+          renderMap2D();
+          return;
+        }
+        if (!initMap3D()) {
+          // WebGL 불가 → 2D 폴백
+          mapMode = "2d";
+          toast("이 기기는 3D를 지원하지 않아 2D 지도로 표시합니다.", "warn");
+          renderMap();
+          if (!mapState._centered) {
+            centerMap();
+            mapState._centered = true;
+          }
+          return;
+        }
+        const empty = $("#map3dEmpty");
+        if (empty) empty.style.display = state.nations ? "none" : "flex";
+        const dock = $("#map3dDock");
+        if (dock) dock.style.display = state.nations ? "flex" : "none";
+        syncMap3D();
+        m3BuildDock();
+        m3Resize();
+        map3dSetActive(true);
+        if (!M3.viewInit && state.nations) {
+          M3.viewInit = true;
+          const home = myNationKey();
+          let pref = null;
+          try {
+            pref = localStorage.getItem("ebs_map_view3d");
+          } catch (e) {}
+          const wantWalk =
+            pref === "walk" || (pref !== "orbit" && ME && ME.role === "student");
+          if (wantWalk && M3_POS[home]) {
+            m3EnterWalk(home, true); // 🪂 하늘에서 우리나라로 낙하 스폰
+          } else {
+            M3.cam.tx = 0;
+            M3.cam.tz = 0;
+            M3.cam.dist = 118;
+            m3FlyTo(home);
+            setTimeout(function () {
+              if (NATIONS[home])
+                toast(
+                  "🛬 <b>" +
+                    NATIONS[home].name +
+                    "</b>에 입국했습니다! 드래그로 둘러보고, 빈 땅을 눌러 건설하세요.",
+                  "good",
+                );
+            }, 1400);
+          }
+        }
+      }
+
+      /* ---------- 버튼/토글 연결 (bootstrap에서 호출, 2D 핸들러를 덮어씀) ---------- */
+      function initMap3DUI() {
+        const tg = $("#mapModeToggle");
+        if (tg)
+          tg.onclick = function () {
+            if (M3.failed) return;
+            mapMode = mapMode === "3d" ? "2d" : "3d";
+            try {
+              localStorage.setItem("ebs_map_mode", mapMode);
+            } catch (e) {}
+            renderMap();
+            if (mapMode !== "3d" && !mapState._centered) {
+              centerMap();
+              mapState._centered = true;
+            }
+          };
+        $("#zoomIn").onclick = function () {
+          if (m3On()) {
+            if (M3.mode === "walk") return;
+            M3.cam.gdist = clamp(M3.cam.gdist / 1.25, 8, 120);
+          } else {
+            const r = $("#mapViewport").getBoundingClientRect();
+            zoomAt(r.width / 2, r.height / 2, 1.18);
+          }
+        };
+        $("#zoomOut").onclick = function () {
+          if (m3On()) {
+            if (M3.mode === "walk") return;
+            M3.cam.gdist = clamp(M3.cam.gdist * 1.25, 8, 120);
+          } else {
+            const r = $("#mapViewport").getBoundingClientRect();
+            zoomAt(r.width / 2, r.height / 2, 1 / 1.18);
+          }
+        };
+        $("#zoomReset").onclick = function () {
+          if (m3On()) {
+            if (M3.mode === "walk") {
+              m3EnterWalk(M3.walk.island, false); // 섬 입구로 리스폰
+              return;
+            }
+            m3FlyTo(state.nations ? myNationKey() : "world");
+          } else {
+            centerMap();
+          }
+        };
+        document.addEventListener("visibilitychange", function () {
+          if (document.hidden) map3dSetActive(false);
+          else if (currentTab === "map" && m3On() && M3.inited)
+            map3dSetActive(true);
+        });
+      }
+
 
       /* ---------- DRAG / ZOOM / CLICK SEPARATION ---------- */
       function initMapInteraction() {
@@ -6235,6 +8413,7 @@
 
         /* 2) 맵 상호작용(드래그/줌/클릭 분리) 가동 */
         initMapInteraction();
+        initMap3DUI(); // ★ 3D 관제망 버튼/토글 연결 (2D 핸들러 위에 덮어씀)
 
         /* 3) 로그인 / 로그아웃 */
         $("#loginBtn").addEventListener("click", doLogin);
