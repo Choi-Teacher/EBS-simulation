@@ -1155,6 +1155,9 @@
           <div class="chip" title="지구 오염도 (모든 나라 공통)">
             <span>🌍</span><b id="hPol" class="num">0</b>
           </div>
+          <div class="chip" title="우리나라 턴당 오염 기여 (보유 건물 합산)">
+            <span>🏭</span><b id="hMyPol" class="num">+0</b>
+          </div>
         </div>
 
         <div style="display: flex; align-items: center; gap: 0.5rem">
@@ -2007,6 +2010,19 @@
       const MIN_HAP = 15;
       const LOGISTICS_TAX = 0.2;
 
+      /* ───────── ★ 오염자 부담 원칙(Polluter-Pays) + 국가 부채 상수 ─────────
+         '막나가는 나라'가 오염·파산을 무기로 게임을 망치지 못하게 하는 핵심 장치 */
+      const CARBON_TAX_BASE = 8; // 턴당 순오염 1당 기본 탄소세 (골드)
+      const CARBON_TAX_PER_TIER = 6; // 지구 오염 단계(tier)마다 탄소세 가산 (골드/오염1)
+      const ROGUE_POL_THRESHOLD = 15; // 턴당 순오염이 이 값 이상이면 '오염 주범국' 국제 제재
+      const ROGUE_HAP_HIT = 8; // 오염 주범국 매 턴 지지율 추가 하락
+      const ROGUE_CUL_HIT = 60; // 오염 주범국 매 턴 국제 신뢰(문화력) 하락
+      const AID_SANCTION_FEE = 0.5; // 오염 주범국이 받는 원조에서 추가 몰수되는 비율
+      const DEBT_INTEREST = 0.15; // 국가 부채(마이너스 자본) 턴당 이자율 15%
+      const DEBT_HAP_HIT = 10; // 부채 상태로 턴을 넘길 때마다 지지율 추가 하락
+      const DEBT_SEIZE_TURNS = 2; // 부채가 이 턴수 연속되면 국제 채권단이 건물 압류
+      const SEIZE_PAYBACK_RATE = 0.4; // 압류 건물 매각 대금 중 부채 상환에 쓰이는 비율
+
       /* 15 agendas — 5 per phase, binary choice (2지 선다) */
       /* 15개 필수 팝업 미션 — turn 1~15, phase별 5개.
          desc=상황 보고(스토리텔링), a/b={label, desc(선택지 설명), eff}.
@@ -2794,8 +2810,52 @@
           $("#hPop").textContent = fmt(n.pop);
           $("#hHap").textContent = Math.round(n.hap);
           $("#hEco").textContent = fmt(n.eco);
+          // ★ 국가 부채 표시 — 자본이 마이너스면 빨간색 경고
+          const ecoEl = $("#hEco");
+          ecoEl.style.color = (n.eco || 0) < 0 ? "var(--bad)" : "";
+          ecoEl.style.fontWeight = (n.eco || 0) < 0 ? "bold" : "";
+          const ecoChip = ecoEl.closest(".chip");
+          if (ecoChip)
+            ecoChip.title =
+              (n.eco || 0) < 0
+                ? "💳 국가 부채 " +
+                  fmt(n.eco) +
+                  "G! 매 턴 이자 15% + 지지율 -10, 2턴 연속되면 채권단이 건물을 압류합니다."
+                : "자본";
           $("#hMil").textContent = fmt(n.mil);
           $("#hCul").textContent = fmt(n.cul);
+          // ★ 우리나라 턴당 오염 기여 칩
+          const myPolEl = $("#hMyPol");
+          if (myPolEl) {
+            const mp = nationPolPerTurn(key);
+            myPolEl.textContent = (mp > 0 ? "+" : "") + mp;
+            myPolEl.style.color =
+              mp >= ROGUE_POL_THRESHOLD
+                ? "var(--bad)"
+                : mp > 0
+                  ? "#f5a623"
+                  : mp < 0
+                    ? "var(--good)"
+                    : "var(--ink)";
+            myPolEl.style.fontWeight = mp >= ROGUE_POL_THRESHOLD ? "bold" : "normal";
+            const myPolChip = myPolEl.closest(".chip");
+            if (myPolChip)
+              myPolChip.title =
+                "우리나라 턴당 오염 기여 " +
+                (mp > 0 ? "+" : "") +
+                mp +
+                (mp >= ROGUE_POL_THRESHOLD
+                  ? " · 🚨 오염 주범국 국제 제재 중! (매 턴 지지율 -" +
+                    ROGUE_HAP_HIT +
+                    "·문화 -" +
+                    ROGUE_CUL_HIT +
+                    " + 탄소세 + 받는 원조 50% 몰수)"
+                  : mp > 0
+                    ? " · 매 턴 탄소세를 냅니다. 정화탑·숲으로 줄이세요!"
+                    : mp < 0
+                      ? " · 🌱 청정국! 오염국들의 탄소세를 녹색 보조금으로 받아요."
+                      : "");
+          }
           const polEl = $("#hPol");
           const gp = getGlobalPol(); // ★ 지구 공동 오염도 (모든 나라 동일)
           const polPen = pollutionPenalty(gp);
@@ -2924,7 +2984,11 @@
               "· 건설된 모든 건물의 <b>턴당 생산</b> 추가<br>" +
               "· <b>유지비(누진세)</b> — 건물 개수에 따라 차감 (3개↓ 무료 · 4개 -15G · 5개 -30G · 6개 -55G … 급증)<br>" +
               "· 인구와 지지율에 비례해 <b>세금(자본)</b> 징수<br>" +
-              "· <b>순수입 = 건물 생산 + 세금 − 유지비 − 오염 피해</b><br>" +
+              "· <b>순수입 = 건물 생산 + 세금 − 유지비 − 오염 피해 − ☢️탄소세 − 💳부채 이자 + 🌱녹색 보조금</b><br>" +
+              "· ☢️ <b>탄소세 (오염자 부담)</b> — 턴당 순오염이 +인 나라는 <b>오염 1당 8G + 오염 단계당 6G</b>를 매 턴 벌금으로 냅니다. 지구가 더러울수록 세율 폭증!<br>" +
+              "· 🌱 <b>녹색 보조금</b> — 걷힌 탄소세는 순오염이 −인 <b>정화국들에게 배분</b>돼요. 깨끗한 나라가 돈을 법니다!<br>" +
+              "· 🚨 <b>오염 주범국 국제 제재</b> — 턴당 순오염 <b>+15 이상</b>이면 매 턴 <b>지지율 -8·문화력 -60</b> 추가 + 받는 원조 50% 몰수!<br>" +
+              "· ⚖️ <b>책임 비율 차등</b> — 아래 단계별 지지율·인구·자본 피해는 <b>누적 오염 기여 비율</b>에 따라 청정국 0.5배 ~ 주범국 최대 2배로 차등 적용!<br>" +
               "· 🌍 <b>지구 오염도 단계별 패널티</b> (단계가 오를수록 급격히 심해져요!):<br>" +
               "&nbsp;&nbsp;<span style='color:#eab308'>● 60↑ 오염 경고</span> — 매 턴 지지율 -3<br>" +
               "&nbsp;&nbsp;<span style='color:#f5a623'>● 80↑ 환경 위기</span> — 지지율 -6, 세금 -25%<br>" +
@@ -2947,7 +3011,7 @@
           ],
           [
             "🏛️ 건물 (25종)",
-            "건물마다 <b>즉시효과</b>·<b>턴당효과</b>·<b>유지비</b>·<b>오염증감</b>이 달라요. '인프라 백과' 탭에서 모두 확인하세요.<br>건물의 오염은 🌍 <b>지구 오염도</b>에 쌓여요(모든 나라 공동!). 발전소·공장은 자본을 많이 주지만 지구를 더럽혀요. <b>정화탑·숲·공원</b>과 <b>환경 기부</b>로 다같이 오염을 관리하세요!",
+            "건물마다 <b>즉시효과</b>·<b>턴당효과</b>·<b>유지비</b>·<b>오염증감</b>이 달라요. '인프라 백과' 탭에서 모두 확인하세요.<br>건물의 오염은 🌍 <b>지구 오염도</b>에 쌓이지만, <b>누가 얼마나 오염시켰는지 나라별로 전부 기록</b>돼요(상단 🏭 칩·국정 탭 순위표). 오염을 많이 배출한 나라는 매 턴 <b>탄소세</b>를 내고 오염 피해도 <b>최대 2배</b>로 받아요. 반대로 <b>정화탑·숲·공원·태양광</b>으로 순오염을 −로 만들면 <b>녹색 보조금</b>을 받습니다!",
           ],
           [
             "📋 필수 미션 (QR 팝업)",
@@ -2967,8 +3031,13 @@
             "교실에서 직접 몸으로 하는 미션이에요!<br>· <b>🎴 카드 뽑기</b>로 미션 카드를 받아요.<br>· <b>시스템 미션</b>(예: 시장 2개 짓기) → '인증하기'를 누르면 게임이 조건을 자동으로 확인해요.<br>· <b>사진 미션</b>(예: 단합 사진) → 카메라가 켜지고, 찍은 사진이 자동 압축돼 마스터에게 전송돼요. 마스터가 ✅승인하면 <b>문화력 +30</b>!",
           ],
           [
-            "💀 확장의 함정 (파산)",
-            "건물을 무작정 많이 지으면 유지비 누진세 폭탄을 맞아요. 자본이 0인데 유지비를 못 내면 <b>국가 부도</b>가 나서 <b>지지율이 한 번에 -15%</b> 폭락합니다! 돈은 0 밑으로 안 떨어지지만, 민심으로 그 대가를 치러요. <b>선택과 집중</b>이 살길이에요.",
+            "💀 확장의 함정 (국가 부채)",
+            "건물을 무작정 많이 지으면 유지비 누진세 폭탄을 맞아요. 이제 돈은 <b>0에서 멈추지 않고 마이너스(빚)</b>가 됩니다!<br>" +
+              "· 적자가 나는 순간 <b>국가 부도</b> — 지지율 <b>-15%</b> 폭락<br>" +
+              "· 빚에는 매 턴 <b>이자 15%</b>가 붙고 지지율이 <b>-10</b>씩 추가로 떨어져요<br>" +
+              "· 빚을 <b>2턴 연속</b> 못 갚으면 🏦 <b>국제 채권단이 가장 오염이 심한 건물을 압류·강제 매각</b>해 빚을 갚게 합니다 (건설비의 40%만 회수)<br>" +
+              "· 빚이 있는 동안엔 건설·기부·원조 보내기가 모두 막혀요<br>" +
+              "빚은 사라지지 않아요. <b>선택과 집중</b>이 살길이에요!",
           ],
           [
             "🌍 시뮬레이션의 끝 (Turn 15)",
@@ -2976,7 +3045,7 @@
           ],
           [
             "🕊️ 유엔 포럼",
-            "· <b>전체 채팅</b>으로 외교와 협상을 나눠요.<br>· <b>환경 기부</b> — 250골드로 🌍 지구 오염도 -12 (지혜 제국은 20% 할인 → 200G)<br>· <b>구호 원조</b> — 다른 나라를 도우면 원조량의 70%만큼 문화력 보너스! (강철 제국은 120%)<br>· ⚠️ 원조엔 <b>물자 수송 수수료 20%</b>가 붙어요 — 받는 나라는 80%만 받습니다. (돈을 주고받는 꼼수로는 점점 가난해져요!)",
+            "· <b>전체 채팅</b>으로 외교와 협상을 나눠요.<br>· <b>환경 기부</b> — 250골드로 🌍 지구 오염도 -12 + 우리나라 <b>누적 오염 책임도 -12</b> (지혜 제국은 20% 할인 → 200G)<br>· <b>구호 원조</b> — 다른 나라를 도우면 원조량의 70%만큼 문화력 보너스! (강철 제국은 120%)<br>· ⚠️ 원조엔 <b>물자 수송 수수료 20%</b>가 붙어요 — 받는 나라는 80%만 받습니다.<br>· 🚨 <b>오염 주범국(턴당 오염 +15↑)에 보내는 원조는 국제 제재로 50%가 추가 몰수</b>돼요. 막나가는 나라는 구걸로도 못 버팁니다!",
           ],
           [
             "🗺️ 영토 관제망 사용법",
@@ -3057,7 +3126,7 @@
         // safety clamps (지지율 15% 하한선 — soft-lock 방지)
         n.hap = clamp(Math.round(n.hap), MIN_HAP, 100);
         n.pop = Math.max(1000, Math.round(n.pop)); // ★ 최소 인구 1,000 보장
-        n.eco = Math.max(0, Math.round(n.eco));
+        n.eco = Math.round(n.eco); // ★ 마이너스(국가 부채) 허용 — 빚은 사라지지 않는다
         n.mil = Math.max(0, Math.round(n.mil));
         n.cul = Math.max(0, Math.round(n.cul));
         const payload = {
@@ -3151,6 +3220,89 @@
         };
       }
       window.pollutionPenalty = pollutionPenalty;
+
+      /* ★ 나라별 턴당 오염 기여 — 보유(점령지 포함) 건물의 pol을 모두 합산.
+         양수면 지구를 더럽히는 중, 음수면 정화 중. */
+      function nationPolPerTurn(key) {
+        if (!state.nations || !state.nations[key]) return 0;
+        const counts = ownedBuildingCounts(key);
+        let pol = 0;
+        for (const bid in counts) {
+          const B = BMAP[bid];
+          if (B && typeof B.pol === "number") pol += B.pol * counts[bid];
+        }
+        return pol;
+      }
+      window.nationPolPerTurn = nationPolPerTurn;
+
+      /* ★ 오염 주범국 판정 — 턴당 순오염이 임계치 이상이면 국제 제재 대상 */
+      function isRoguePolluter(key) {
+        return nationPolPerTurn(key) >= ROGUE_POL_THRESHOLD;
+      }
+      window.isRoguePolluter = isRoguePolluter;
+
+      /* ★ 나라별 오염 기여도 순위표 HTML — 국정 패널·마스터 화면에서 재사용 */
+      function polBreakdownHTML() {
+        if (!state.nations) return "";
+        let totalGiven = 0;
+        const rows = NATION_ORDER.map((k) => {
+          const per = nationPolPerTurn(k);
+          const given = Math.max(0, (state.nations[k] && state.nations[k].polGiven) || 0);
+          totalGiven += given;
+          return { k, per, given };
+        });
+        rows.sort((a, b) => b.per - a.per || b.given - a.given);
+        const inner = rows
+          .map((r) => {
+            const c = NATIONS[r.k];
+            const share = totalGiven > 0 ? Math.round((r.given / totalGiven) * 100) : 0;
+            const badge =
+              r.per >= ROGUE_POL_THRESHOLD
+                ? '<span style="color:var(--bad);font-weight:bold;">🚨 오염 주범국</span>'
+                : r.per < 0
+                  ? '<span style="color:var(--good);">🌱 청정국</span>'
+                  : '<span style="color:var(--ink-dim);">보통</span>';
+            const perColor =
+              r.per >= ROGUE_POL_THRESHOLD
+                ? "var(--bad)"
+                : r.per > 0
+                  ? "#f5a623"
+                  : r.per < 0
+                    ? "var(--good)"
+                    : "var(--ink-dim)";
+            return (
+              '<div style="display:flex;align-items:center;gap:.5rem;padding:.3rem .4rem;border-radius:8px;background:rgba(0,0,0,.22);font-size:.78rem;">' +
+              '<span style="width:12px;height:12px;border-radius:3px;flex:none;background:' +
+              c.color +
+              ';"></span>' +
+              '<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' +
+              c.name +
+              "</span>" +
+              '<b class="num" style="color:' +
+              perColor +
+              ';">' +
+              (r.per > 0 ? "+" : "") +
+              r.per +
+              "/턴</b>" +
+              '<span class="num" style="color:var(--ink-dim);">누적 ' +
+              r.given +
+              " (" +
+              share +
+              "%)</span>" +
+              badge +
+              "</div>"
+            );
+          })
+          .join("");
+        return (
+          '<div style="margin-top:.6rem;">' +
+          '<div style="font-size:.8rem;font-weight:bold;margin-bottom:.3rem;">🏭 나라별 오염 기여도 <span style="font-weight:normal;color:var(--ink-dim);font-size:.72rem;">(턴당 배출량 / 누적 책임 비율 — 책임이 클수록 오염 피해·탄소세를 더 크게 받아요)</span></div>' +
+          '<div style="display:grid;gap:.25rem;">' +
+          inner +
+          "</div></div>"
+        );
+      }
+      window.polBreakdownHTML = polBreakdownHTML;
 
       async function voteAgenda(choice) {
         const aid = state.meta.agenda;
@@ -3612,7 +3764,8 @@
             ? '<div style="color:var(--bad);font-size:.8rem;margin-top:.3rem;">⚠️ 지구 오염 100 초과! 모든 나라 세금이 반토막 납니다. 함께 환경 기부로 낮추세요!</div>'
             : getGlobalPol() >= 80
               ? '<div style="color:var(--warn);font-size:.8rem;margin-top:.3rem;">⚠️ 지구 오염 80 이상! 모든 나라 지지율이 매 턴 떨어집니다.</div>'
-              : '<div style="color:var(--ink-dim);font-size:.75rem;margin-top:.3rem;">🌍 오염도는 모든 나라가 함께 만들고 함께 책임지는 <b>지구 공동 수치</b>예요.</div>') +
+              : '<div style="color:var(--ink-dim);font-size:.75rem;margin-top:.3rem;">🌍 오염도는 모든 나라가 함께 만들고 함께 책임지는 <b>지구 공동 수치</b>예요. 단, 피해와 탄소세는 <b>더 많이 오염시킨 나라가 더 크게</b> 받습니다!</div>') +
+          polBreakdownHTML() +
           "</div>";
 
         // ── 턴당 경제 요약 (생산 / 세금 / 유지비 / 순수입) ──
@@ -3627,7 +3780,16 @@
         const upkeep = nationUpkeep(n.grid);
         const nextDelta = marginalUpkeep(builtNow);
         const tradeBonus = (NATIONS[key] && NATIONS[key].tradeBonus) || 0;
-        const net = prodEco + projTax - upkeep + tradeBonus;
+        /* ★ 탄소세·부채 이자 예상치 — 정산 전에 미리 보여줘 경고 */
+        const myPolProj = nationPolPerTurn(key);
+        const tierProj = pollutionPenalty(getGlobalPol()).tier;
+        const projCarbon =
+          myPolProj > 0
+            ? Math.round(myPolProj * (CARBON_TAX_BASE + CARBON_TAX_PER_TIER * tierProj))
+            : 0;
+        const projInterest =
+          (n.eco || 0) < 0 ? Math.round(-(n.eco || 0) * DEBT_INTEREST) : 0;
+        const net = prodEco + projTax - upkeep + tradeBonus - projCarbon - projInterest;
         html +=
           '<div class="glass" style="padding:1rem;margin-bottom:1rem;">' +
           '<h3 style="margin:0 0 .5rem;">💵 턴당 경제 요약</h3>' +
@@ -3651,6 +3813,21 @@
               fmt(tradeBonus) +
               "</b></div>"
             : "") +
+          (projCarbon
+            ? '<div style="background:rgba(0,0,0,.25);border-radius:10px;padding:.5rem .7rem;">☢️ 예상 탄소세<br><b class="num" style="color:var(--bad)">-' +
+              fmt(projCarbon) +
+              '</b><div style="font-size:.65rem;color:var(--ink-dim);">턴당 오염 +' +
+              myPolProj +
+              " × 세율</div></div>"
+            : "") +
+          (myPolProj < 0
+            ? '<div style="background:rgba(0,0,0,.25);border-radius:10px;padding:.5rem .7rem;">🌱 정화국<br><b class="num" style="color:var(--good)">보조금 수령</b><div style="font-size:.65rem;color:var(--ink-dim);">오염국 탄소세를 배분받아요</div></div>'
+            : "") +
+          (projInterest
+            ? '<div style="background:rgba(0,0,0,.25);border-radius:10px;padding:.5rem .7rem;">💳 부채 이자<br><b class="num" style="color:var(--bad)">-' +
+              fmt(projInterest) +
+              '</b><div style="font-size:.65rem;color:var(--ink-dim);">빚의 15%가 매 턴 붙어요</div></div>'
+            : "") +
           '<div style="background:rgba(0,0,0,.35);border-radius:10px;padding:.5rem .7rem;border:1px solid ' +
           (net >= 0 ? "var(--good)" : "var(--bad)") +
           ';">📈 순수입<br><b class="num" style="color:' +
@@ -3662,6 +3839,24 @@
           "</div>" +
           (net < 0
             ? '<div style="color:var(--warn);font-size:.78rem;margin-top:.5rem;">⚠️ 지출이 수입보다 많아요! 세금(지지율·인구)을 늘리거나 적자 건물을 줄여야 합니다.</div>'
+            : "") +
+          (myPolProj >= ROGUE_POL_THRESHOLD
+            ? '<div style="color:var(--bad);font-size:.78rem;margin-top:.5rem;font-weight:bold;">🚨 우리나라는 턴당 오염 +' +
+              myPolProj +
+              "의 '오염 주범국'입니다! 매 턴 지지율 -" +
+              ROGUE_HAP_HIT +
+              "·문화 -" +
+              ROGUE_CUL_HIT +
+              " 국제 제재 + 탄소세를 물고, 받는 원조도 50% 몰수돼요. 정화탑·숲·공원을 지어 오염을 +" +
+              (ROGUE_POL_THRESHOLD - 1) +
+              " 이하로 낮추세요!</div>"
+            : "") +
+          ((n.eco || 0) < 0
+            ? '<div style="color:var(--bad);font-size:.78rem;margin-top:.5rem;font-weight:bold;">💳 국가 부채 ' +
+              fmt(n.eco) +
+              "G! 매 턴 이자 15%와 지지율 -" +
+              DEBT_HAP_HIT +
+              "이 붙고, 부채가 2턴 연속되면 국제 채권단이 건물을 압류·매각합니다. 건물을 팔거나 원조를 받아 빚부터 갚으세요!</div>"
             : "") +
           "</div>";
 
@@ -6477,7 +6672,7 @@
         // 안전 클램프
         owner.hap = clamp(Math.round(owner.hap || 0), MIN_HAP, 100);
         owner.pop = Math.max(1000, Math.round(owner.pop || 0));
-        owner.eco = Math.max(0, Math.round(owner.eco));
+        owner.eco = Math.round(owner.eco); // ★ 부채 유지 — 환급금은 빚 상환에 먼저 쓰인다
         owner.mil = Math.max(0, Math.round(owner.mil || 0));
         owner.cul = Math.max(0, Math.round(owner.cul || 0));
         // ★ 그리드: 해당 칸만 저장 — 점령지면 빈 점령칸(@점령국) 유지, 일반이면 완전히 비움
@@ -6881,7 +7076,7 @@
           }
           aN[res] = Math.max(0, Math.round(aN[res]));
           const loot0 = Math.round(cost * 0.4);
-          aN.eco = Math.max(0, Math.round((aN.eco || 0) + loot0));
+          aN.eco = Math.round((aN.eco || 0) + loot0); // ★ 부채 유지 — 전리품은 빚 상환에 먼저 쓰인다
           await Data.update("nations/" + meKey, {
             mil: Math.round(aN.mil),
             cul: Math.round(aN.cul),
@@ -6986,7 +7181,7 @@
 
         // clamps
         aN[res] = Math.max(0, Math.round(aN[res]));
-        aN.eco = Math.max(0, Math.round(aN.eco));
+        aN.eco = Math.round(aN.eco); // ★ 부채 유지
 
         await Data.update("nations/" + meKey, {
           mil: Math.round(aN.mil),
@@ -7102,9 +7297,12 @@
         }
         // ★ 누적 기부액 기록 — 시뮬레이션 종료 시 '지구를 지킨 국가' 시상에 사용
         const liveGiven = (state.nations[key] && state.nations[key].envGiven) || 0;
+        // ★ 기부하면 '누적 오염 책임(polGiven)'도 12만큼 씻겨 오염 패널티 차등 배율이 낮아진다
+        const livePolGiven = (state.nations[key] && state.nations[key].polGiven) || 0;
         await Data.update("nations/" + key, {
           eco: Math.max(0, Math.round(liveEco - cost)),
           envGiven: Math.round(liveGiven + cost),
+          polGiven: Math.max(0, Math.round(livePolGiven - 12)),
         });
         await applyGlobalPol(-12); // ★ 지구 공동 오염도를 함께 낮춤
         const gpNow = getGlobalPol();
@@ -7162,7 +7360,24 @@
         }
         const payback = (NATIONS[key] && NATIONS[key].aidPayback) || 0.7;
         const culGain = Math.round(amt * payback); // 보낸 금액(전액) 기준 문화력 환급
-        const received = Math.round(amt * (1 - LOGISTICS_TAX)); // ★ 수송 수수료 20% 차감
+        let received = Math.round(amt * (1 - LOGISTICS_TAX)); // ★ 수송 수수료 20% 차감
+        /* ★ 오염 주범국 원조 제재 — 턴당 순오염 +15 이상인 나라에 보내는 원조는
+           국제 제재로 50%가 추가 몰수된다. ('돈 구걸'로 오염 플레이를 유지하는 꼼수 차단) */
+        const tgtPol = nationPolPerTurn(tgt);
+        const sanctioned = tgtPol >= ROGUE_POL_THRESHOLD;
+        if (sanctioned) {
+          received = Math.round(received * (1 - AID_SANCTION_FEE));
+          const okS = confirm(
+            "⚠️ [국제 제재 경고]\n" +
+              NATIONS[tgt].name +
+              "은(는) 턴당 오염 +" +
+              tgtPol +
+              "을 배출하는 '오염 주범국'으로 국제 제재를 받고 있습니다.\n\n원조의 50%가 추가 몰수되어 " +
+              fmt(received) +
+              "골드만 전달됩니다.\n(제재를 풀려면 그 나라가 오염 건물을 줄여야 해요.)\n\n그래도 원조하시겠습니까?",
+          );
+          if (!okS) return;
+        }
         g.eco -= amt;
         g.cul += culGain;
         r.eco += received;
@@ -7181,7 +7396,9 @@
             NATIONS[tgt].name +
             "에 " +
             fmt(amt) +
-            "골드를 원조 → 수수료 20% 차감 후 " +
+            "골드를 원조 → 수수료 20% 차감" +
+            (sanctioned ? " + 🚨오염 주범국 국제 제재로 50% 추가 몰수" : "") +
+            " 후 " +
             fmt(received) +
             "골드 전달.",
           ts: Date.now(),
@@ -7321,6 +7538,34 @@
         const POL_RISE_FACTOR = 1.0;
         let worldPolDelta = 0;
 
+        /* ★ [오염자 부담 원칙] 사전 계산 — 나라별 턴당 오염 / 누적 책임 비율 / 탄소세 풀 */
+        const worldPolNow = getGlobalPol();
+        const penNow = pollutionPenalty(worldPolNow);
+        const polMap = {}; // 나라별 이번 턴 순오염 (건물 합산)
+        const respShare = {}; // 나라별 누적 오염 책임 비율 (0~1)
+        let cleanersTotal = 0; // 정화국들의 정화량 합 (녹색 보조금 배분 기준)
+        let respTotal = 0;
+        let carbonPool = 0; // 이번 턴 걷힐 탄소세 총액 (청정국 보조금 재원)
+        for (const k of NATION_ORDER) {
+          polMap[k] = nationPolPerTurn(k);
+          if (polMap[k] < 0) cleanersTotal += -polMap[k];
+          if (polMap[k] > 0)
+            carbonPool += Math.round(
+              polMap[k] * (CARBON_TAX_BASE + CARBON_TAX_PER_TIER * penNow.tier),
+            );
+          respTotal += Math.max(
+            0,
+            (state.nations[k] && state.nations[k].polGiven) || 0,
+          );
+        }
+        for (const k of NATION_ORDER) {
+          const mine = Math.max(
+            0,
+            (state.nations[k] && state.nations[k].polGiven) || 0,
+          );
+          respShare[k] = respTotal > 0 ? mine / respTotal : 0;
+        }
+
         const report = [];
         for (const key of NATION_ORDER) {
           const n = clone(state.nations[key]);
@@ -7353,60 +7598,165 @@
 
           /* 3) 세금 징수 : 인구 × 지지율에 비례 */
           let tax = Math.round((n.pop / 1000) * (n.hap / 100) * 60);
-          /* ★ 4) 지구 오염도 단계별 패널티 (세분화 + 강화)
+          /* ★ 4) 지구 오염도 단계별 패널티 (오염자 부담 원칙으로 차등 적용)
              60↑ 경고 / 80↑ 위기 / 100↑ 재앙 / 150↑ 대재앙 / 200↑ 멸종위기.
-             단계가 오를수록 세금↓·지지율↓·인구↓에 더해 '자본 직접 피해'까지 가해
-             돈 많은 나라도 전쟁만 하다간 파산하도록 한다. */
-          const worldPol = getGlobalPol();
-          const pen = pollutionPenalty(worldPol);
-          const disaster = pen.tier >= 3; // 재앙(100↑) 이상이면 대재앙 표기
-          // 세금 감소
+             세금 감소는 전 세계 공통(공유지의 비극)이지만,
+             지지율·인구·자본 직접 피해는 '누적 오염 책임 비율'에 따라
+             청정국 0.5배 ~ 오염 주범 최대 2.0배로 차등을 둔다. */
+          const worldPol = worldPolNow;
+          const pen = penNow;
+          // 세금 감소 (모든 나라 공통)
           if (pen.taxCut > 0) tax = Math.round(tax * (1 - pen.taxCut));
-          /* ★ 세금 수입 - 건물 유지비(누진세) + 국가 특성 보너스 - 오염 직접피해 = 순수입 */
+
+          const myPol = polMap[key] || 0;
+          const respMult = 0.5 + 1.5 * (respShare[key] || 0);
+          const hapDropMe = Math.round(pen.hapDrop * respMult);
+          const ecoHitMe = Math.round(pen.ecoHit * respMult);
+          const popLossMe = pen.popLoss * respMult;
+
+          /* ★ 탄소세 — 이번 턴 배출한 순오염만큼 즉시 벌금. 오염 단계가 오를수록 세율 급증 */
+          const carbonTax =
+            myPol > 0
+              ? Math.round(myPol * (CARBON_TAX_BASE + CARBON_TAX_PER_TIER * pen.tier))
+              : 0;
+          /* ★ 녹색 보조금 — 걷힌 탄소세를 정화국(순오염 음수)에게 정화량 비율로 배분 */
+          const greenSubsidy =
+            myPol < 0 && cleanersTotal > 0 && carbonPool > 0
+              ? Math.round(carbonPool * (-myPol / cleanersTotal))
+              : 0;
+
+          /* ★ 오염 주범국 국제 제재 — 턴당 순오염이 임계치(+15) 이상이면 추가 페널티 */
+          const rogue = myPol >= ROGUE_POL_THRESHOLD;
+          if (rogue) {
+            n.hap = (n.hap || 0) - ROGUE_HAP_HIT;
+            n.cul = (n.cul || 0) - ROGUE_CUL_HIT;
+          }
+
+          /* ★ 국가 부채 이자 — 지난 턴을 빚(마이너스 자본)으로 끝냈다면 이자가 붙는다 */
+          const carriedDebt = Math.min(
+            0,
+            Math.round((state.nations[key] && state.nations[key].eco) || 0),
+          );
+          const debtInterest =
+            carriedDebt < 0 ? Math.round(-carriedDebt * DEBT_INTEREST) : 0;
+
+          /* ★ 순수입 = 세금 - 유지비 + 무역 보너스 - 오염 직접피해 - 탄소세 - 부채 이자 + 녹색 보조금 */
           const tradeBonus = trait.tradeBonus || 0; // 자본 제국 +150 (무역 보조금)
-          const rawEco = (n.eco || 0) + tax - upkeep + tradeBonus - pen.ecoHit;
-          /* ★ 파산 페널티 : 유지비를 못 내 적자가 나면 '국가 부도' → 지지율 -15% 폭락 */
+          const rawEco =
+            (n.eco || 0) +
+            tax -
+            upkeep +
+            tradeBonus -
+            ecoHitMe -
+            carbonTax -
+            debtInterest +
+            greenSubsidy;
+          /* ★ 파산 페널티 : 적자면 '국가 부도' → 지지율 -15% 폭락.
+             이제 돈은 0에서 멈추지 않고 그대로 '빚(마이너스)'으로 남는다! */
           let bankrupt = false;
           if (rawEco < 0) {
             bankrupt = true;
             n.hap = (n.hap || 0) - 15;
           }
-          n.eco = rawEco; // 아래에서 0 하한 클램프
+          n.eco = rawEco; // ★ 마이너스(국가 부채) 허용
 
-          /* ★ 5) 오염 단계별 지지율·인구 직접 피해 */
-          if (pen.hapDrop) n.hap = (n.hap || 0) - pen.hapDrop;
-          if (pen.popLoss) n.pop = n.pop - n.pop * pen.popLoss;
+          /* ★ 5) 오염 단계별 지지율·인구 직접 피해 (책임 비율 차등) */
+          if (hapDropMe) n.hap = (n.hap || 0) - hapDropMe;
+          if (popLossMe) n.pop = n.pop - n.pop * popLossMe;
 
-          /* 6) 안전 클램프 + 최소 인구 1,000 보장 + 지지율 15% 하한선(soft-lock 방지) */
+          /* ★ 5.5) 국가 부채 지속 페널티 + 국제 채권단 압류
+             · 부채로 턴을 넘기면 매 턴 지지율 -10 추가
+             · 부채가 2턴 연속되면 채권단이 '가장 오염이 심한 건물'을 압류·매각해 빚을 강제 상환 */
+          let debtTurns = (state.nations[key] && state.nations[key].debtTurns) || 0;
+          let seizedName = "";
+          let seizedProceeds = 0;
+          if (Math.round(n.eco) < 0) {
+            debtTurns += 1;
+            n.hap = (n.hap || 0) - DEBT_HAP_HIT;
+            if (debtTurns >= DEBT_SEIZE_TURNS) {
+              const g = normalizeGrid(n.grid);
+              let pickIdx = -1;
+              let pickB = null;
+              g.forEach((cell, i) => {
+                if (!cell || isConquered(cell)) return;
+                const B = BMAP[cell];
+                if (!B) return;
+                if (
+                  !pickB ||
+                  (B.pol || 0) > (pickB.pol || 0) ||
+                  ((B.pol || 0) === (pickB.pol || 0) && B.cost > pickB.cost)
+                ) {
+                  pickB = B;
+                  pickIdx = i;
+                }
+              });
+              if (pickIdx >= 0 && pickB) {
+                seizedProceeds = Math.round(pickB.cost * SEIZE_PAYBACK_RATE);
+                n.eco += seizedProceeds;
+                seizedName = pickB.icon + pickB.name;
+                const seizeWrite = {};
+                seizeWrite["grid/" + pickIdx] = "";
+                await Data.update("nations/" + key, seizeWrite);
+                debtTurns = 0; // 압류 집행 후 카운트 리셋
+              }
+            }
+          } else {
+            debtTurns = 0;
+          }
+
+          /* 6) 안전 클램프 + 최소 인구 1,000 보장 + 지지율 15% 하한선(soft-lock 방지)
+             ★ 자본은 이제 마이너스(부채)를 허용한다 */
           n.pop = Math.max(1000, Math.round(n.pop));
           n.hap = clamp(Math.round(n.hap), MIN_HAP, 100);
-          n.eco = Math.max(0, Math.round(n.eco));
+          n.eco = Math.round(n.eco);
           n.mil = Math.max(0, Math.round(n.mil));
           n.cul = Math.max(0, Math.round(n.cul));
 
-          /* 7) 새 아젠다를 받을 수 있도록 직전 투표 기록 초기화 (pol은 더 이상 자국 스탯 아님) */
+          /* 7) 새 아젠다를 받을 수 있도록 직전 투표 기록 초기화
+             ★ polGiven(누적 오염 기여)·debtTurns(부채 연속 턴)도 함께 저장 */
+          const prevGiven = Math.max(
+            0,
+            (state.nations[key] && state.nations[key].polGiven) || 0,
+          );
           await Data.update("nations/" + key, {
             pop: n.pop,
             hap: n.hap,
             eco: n.eco,
             mil: n.mil,
             cul: n.cul,
+            polGiven: Math.max(0, Math.round(prevGiven + myPol)),
+            debtTurns: debtTurns,
             lastVote: "",
           });
 
+          const netThisTurn =
+            tax - upkeep + tradeBonus - ecoHitMe - carbonTax - debtInterest + greenSubsidy;
           report.push(
             NATIONS[key].name +
-              (pen.tier >= 1 ? " 🌍" + pen.label : "") +
-              (pen.ecoHit ? "(자본-" + fmt(pen.ecoHit) + ")" : "") +
+              " 오염" +
+              (myPol > 0 ? "+" : "") +
+              myPol +
+              (pen.tier >= 1 ? " 🌍" + pen.label + "(책임 x" + respMult.toFixed(1) + ")" : "") +
+              (ecoHitMe ? "(자본-" + fmt(ecoHitMe) + ")" : "") +
+              (carbonTax ? " ☢️탄소세-" + fmt(carbonTax) : "") +
+              (greenSubsidy ? " 🌱보조금+" + fmt(greenSubsidy) : "") +
+              (rogue
+                ? " 🚨국제제재(지지율-" + ROGUE_HAP_HIT + "·문화-" + ROGUE_CUL_HIT + ")"
+                : "") +
+              (debtInterest ? " 💳이자-" + fmt(debtInterest) : "") +
               (bankrupt ? " 💀국가부도(지지율-15)" : "") +
+              (Math.round(n.eco) < 0 ? " ⚠️부채 " + fmt(n.eco) + "G(지지율-" + DEBT_HAP_HIT + ")" : "") +
+              (seizedName
+                ? " ⚖️채권단 압류: " + seizedName + " 강제매각(+" + fmt(seizedProceeds) + "G 상환)"
+                : "") +
               " 세금+" +
               fmt(tax) +
               " 유지비-" +
               fmt(upkeep) +
               (tradeBonus ? " 무역+" + fmt(tradeBonus) : "") +
               " (순익 " +
-              (tax - upkeep + tradeBonus - pen.ecoHit >= 0 ? "+" : "") +
-              fmt(tax - upkeep + tradeBonus - pen.ecoHit) +
+              (netThisTurn >= 0 ? "+" : "") +
+              fmt(netThisTurn) +
               "💰)",
           );
         }
