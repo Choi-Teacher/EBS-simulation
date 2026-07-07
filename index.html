@@ -29,7 +29,57 @@
    E.B.S-Simulation — GLOBAL THEME TOKENS
    Phase themes swap these CSS variables to "evolve" the world.
    ============================================================ */
+      /* ★ 탭 아이덴티티 색 — 등록해두면 탭 전환 시 색이 부드럽게 녹아 바뀐다 */
+      @property --tab-glow {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #38bdf8;
+      }
+      /* ★ 배경 토큰도 색으로 등록 → 탭 전환 시 화면 전체가 부드럽게 크로스페이드 */
+      @property --bg-0 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #070b1a;
+      }
+      @property --bg-1 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #0d1430;
+      }
+      @property --bg-2 {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: #101a3d;
+      }
+      @property --glass {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(20, 28, 56, 0.55);
+      }
+      @property --glass-strong {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(26, 36, 72, 0.78);
+      }
+      @property --stroke {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(140, 170, 255, 0.18);
+      }
+      @property --stroke-bright {
+        syntax: "<color>";
+        inherits: true;
+        initial-value: rgba(160, 190, 255, 0.38);
+      }
       :root {
+        /* ★ 탭별 아이덴티티 컬러 (멀리서도 어떤 탭인지 색으로 구분) */
+        --tab-domestic: #f7b955; /* 🏰 국가 내정실 — 왕궁의 호박금 */
+        --tab-map: #38bdf8; /* 🗺️ 영토 관제망 — 하늘색 */
+        --tab-war: #ff6b81; /* 💥 침략 상황실 — 진홍 */
+        --tab-field: #3ddc97; /* 🎯 현장 미션 — 에메랄드 */
+        --tab-mcu: #c084fc; /* 👑 MCU 통제실 — 바이올렛 */
+        --tab-glow: #38bdf8; /* 현재 탭의 색 (body[data-tab]가 갈아끼움) */
+
         /* nation accents (stable across phases) */
         --c-capital: #f5c518;
         --c-capital-soft: rgba(245, 197, 24, 0.16);
@@ -99,10 +149,87 @@
             color-mix(in srgb, var(--glow) 22%, transparent),
             transparent 50%
           ),
+          radial-gradient(
+            1100px 620px at 50% 112%,
+            color-mix(in srgb, var(--tab-glow) 17%, transparent),
+            transparent 62%
+          ),
           radial-gradient(900px 900px at 50% 120%, var(--bg-1), transparent 60%),
           var(--bg-0);
         overflow: hidden;
-        transition: background 1.2s ease;
+        transition:
+          background 1.2s ease,
+          --tab-glow 0.8s ease,
+          --bg-0 0.8s ease,
+          --bg-1 0.8s ease,
+          --bg-2 0.8s ease,
+          --glass 0.8s ease,
+          --glass-strong 0.8s ease,
+          --stroke 0.8s ease,
+          --stroke-bright 0.8s ease;
+      }
+      /* ★ 탭별 화면 무드 — 탭을 바꾸면 '화면 전체'의 바탕색이 그 탭의 어두운 색조로 바뀐다.
+         (멀리서도 화면 색만 보고 어떤 탭인지 알 수 있게)
+         페이즈 진화는 우상단 글로우(--glow)와 별빛으로 계속 표현된다. */
+      body[data-tab="domestic"] {
+        --tab-glow: var(--tab-domestic);
+        --bg-0: #150e04; /* 짙은 호박 — 왕궁의 밤 */
+        --bg-1: #271808;
+        --bg-2: #38230b;
+        --glass: rgba(48, 34, 12, 0.55);
+        --glass-strong: rgba(58, 41, 15, 0.8);
+        --stroke: rgba(255, 205, 120, 0.2);
+        --stroke-bright: rgba(255, 215, 140, 0.4);
+        --ink-dim: #d9c49a;
+        --ink-faint: #9a875f;
+      }
+      body[data-tab="map"] {
+        --tab-glow: var(--tab-map);
+        --bg-0: #05101d; /* 짙은 하늘 남색 — 관제망의 밤하늘 */
+        --bg-1: #0a1f36;
+        --bg-2: #0d2c4d;
+        --glass: rgba(14, 34, 58, 0.55);
+        --glass-strong: rgba(18, 42, 72, 0.8);
+        --stroke: rgba(125, 200, 255, 0.2);
+        --stroke-bright: rgba(145, 210, 255, 0.4);
+        --ink-dim: #9cc3e8;
+        --ink-faint: #5f83a8;
+      }
+      body[data-tab="war"] {
+        --tab-glow: var(--tab-war);
+        --bg-0: #170609; /* 짙은 와인 — 상황실의 경보등 */
+        --bg-1: #2b0d15;
+        --bg-2: #3e121f;
+        --glass: rgba(52, 18, 28, 0.55);
+        --glass-strong: rgba(64, 22, 34, 0.8);
+        --stroke: rgba(255, 140, 160, 0.2);
+        --stroke-bright: rgba(255, 155, 175, 0.4);
+        --ink-dim: #e0a7b4;
+        --ink-faint: #a06a78;
+      }
+      body[data-tab="field"] {
+        --tab-glow: var(--tab-field);
+        --bg-0: #041410; /* 짙은 숲 — 교실 밖 초원 */
+        --bg-1: #09261c;
+        --bg-2: #0c3527;
+        --glass: rgba(12, 44, 33, 0.55);
+        --glass-strong: rgba(15, 54, 41, 0.8);
+        --stroke: rgba(120, 240, 190, 0.2);
+        --stroke-bright: rgba(140, 250, 205, 0.4);
+        --ink-dim: #a3d6c2;
+        --ink-faint: #63927f;
+      }
+      body[data-tab="mcu"] {
+        --tab-glow: var(--tab-mcu);
+        --bg-0: #120724; /* 짙은 로열 바이올렛 — 마스터의 방 */
+        --bg-1: #200f3c;
+        --bg-2: #2d1654;
+        --glass: rgba(38, 22, 66, 0.55);
+        --glass-strong: rgba(46, 28, 80, 0.8);
+        --stroke: rgba(200, 160, 255, 0.2);
+        --stroke-bright: rgba(212, 175, 255, 0.4);
+        --ink-dim: #c4aee6;
+        --ink-faint: #83699f;
       }
       /* drifting starfield layer */
       body::before {
@@ -265,7 +392,11 @@
         height: 10px;
       }
       ::-webkit-scrollbar-thumb {
-        background: color-mix(in srgb, var(--glow) 55%, #000);
+        background: color-mix(
+          in srgb,
+          color-mix(in srgb, var(--tab-glow) 60%, var(--glow)) 55%,
+          #000
+        );
         border-radius: 8px;
       }
       ::-webkit-scrollbar-track {
@@ -287,27 +418,70 @@
         font-weight: 700;
       }
 
-      /* ---------- TABS ---------- */
+      /* ---------- TABS (탭마다 고유 색 아이덴티티) ---------- */
       .tabbtn {
         position: relative;
         font-family: "Jua";
         white-space: nowrap;
-        padding: 0.6rem 0.85rem;
+        padding: 0.6rem 0.85rem 0.72rem;
         border-radius: 12px;
         color: var(--ink-dim);
         cursor: pointer;
         transition: 0.18s;
         border: 1px solid transparent;
+        --tb: var(--accent);
+      }
+      .tabbtn[data-tab="domestic"] {
+        --tb: var(--tab-domestic);
+      }
+      .tabbtn[data-tab="map"] {
+        --tb: var(--tab-map);
+      }
+      .tabbtn[data-tab="war"] {
+        --tb: var(--tab-war);
+      }
+      .tabbtn[data-tab="field"] {
+        --tb: var(--tab-field);
+      }
+      .tabbtn[data-tab="mcu"] {
+        --tb: var(--tab-mcu);
+      }
+      /* 탭마다 항상 보이는 색 띠 — 멀리서도 색으로 구분 */
+      .tabbtn::after {
+        content: "";
+        position: absolute;
+        left: 14px;
+        right: 14px;
+        bottom: 5px;
+        height: 3px;
+        border-radius: 3px;
+        background: var(--tb);
+        opacity: 0.4;
+        transition: 0.22s;
       }
       .tabbtn:hover {
-        color: var(--ink);
-        background: rgba(255, 255, 255, 0.05);
+        color: color-mix(in srgb, var(--tb) 55%, var(--ink));
+        background: color-mix(in srgb, var(--tb) 10%, transparent);
+      }
+      .tabbtn:hover::after {
+        opacity: 0.75;
       }
       .tabbtn.active {
         color: #fff;
-        background: color-mix(in srgb, var(--glow) 30%, transparent);
-        border-color: var(--stroke-bright);
-        box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+        background: linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--tb) 30%, transparent),
+          color-mix(in srgb, var(--tb) 14%, transparent)
+        );
+        border-color: color-mix(in srgb, var(--tb) 55%, transparent);
+        box-shadow:
+          0 6px 18px color-mix(in srgb, var(--tb) 22%, rgba(0, 0, 0, 0.35)),
+          inset 0 0 16px color-mix(in srgb, var(--tb) 12%, transparent);
+        text-shadow: 0 0 14px color-mix(in srgb, var(--tb) 70%, transparent);
+      }
+      .tabbtn.active::after {
+        opacity: 1;
+        box-shadow: 0 0 10px var(--tb);
       }
 
       /* ---------- 인프라 백과 사이드바 토글 버튼 (탭 아님 — 독립) ---------- */
@@ -911,6 +1085,67 @@
         display: block;
         animation: fadeIn 0.35s ease both;
       }
+      /* ★ 탭 색이 패널 안까지 스며든다 — 유리판 테두리·리본·제목·구분선 */
+      .tabpanel .glass {
+        border-color: color-mix(in srgb, var(--tab-glow) 26%, var(--stroke));
+      }
+      .tabpanel .glass-strong {
+        border-color: color-mix(in srgb, var(--tab-glow) 40%, var(--stroke-bright));
+        border-top: 2px solid color-mix(in srgb, var(--tab-glow) 65%, transparent);
+        box-shadow:
+          0 18px 60px rgba(0, 0, 0, 0.55),
+          0 -6px 26px -14px var(--tab-glow),
+          inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      .tabpanel h3 {
+        padding-left: 0.55rem;
+        border-left: 3px solid color-mix(in srgb, var(--tab-glow) 80%, transparent);
+        border-radius: 2px;
+      }
+      .tabpanel .divider {
+        background: linear-gradient(
+          90deg,
+          transparent,
+          color-mix(in srgb, var(--tab-glow) 55%, var(--stroke-bright)),
+          transparent
+        );
+      }
+      /* ★ 탭 아이덴티티 배너 — 각 방(탭)의 이름표. 탭 색으로 빛난다 */
+      .tab-banner {
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+        margin-bottom: 0.8rem;
+        padding: 0.55rem 0.9rem;
+        border-radius: 14px;
+        border: 1px solid color-mix(in srgb, var(--tab-glow) 45%, transparent);
+        background:
+          linear-gradient(
+            90deg,
+            color-mix(in srgb, var(--tab-glow) 20%, transparent),
+            color-mix(in srgb, var(--tab-glow) 4%, transparent) 55%,
+            transparent
+          );
+        box-shadow: inset 0 0 22px color-mix(in srgb, var(--tab-glow) 8%, transparent);
+      }
+      .tab-banner .tb-icon {
+        font-size: 1.25rem;
+        filter: drop-shadow(0 0 8px color-mix(in srgb, var(--tab-glow) 70%, transparent));
+      }
+      .tab-banner .tb-name {
+        font-family: "Jua";
+        font-size: 1.02rem;
+        color: color-mix(in srgb, var(--tab-glow) 68%, #fff);
+        text-shadow: 0 0 14px color-mix(in srgb, var(--tab-glow) 55%, transparent);
+        letter-spacing: 0.02em;
+      }
+      .tab-banner .tb-sub {
+        font-size: 0.72rem;
+        color: var(--ink-dim);
+        margin-left: auto;
+        text-align: right;
+      }
+
       .badge {
         font-family: "Jua";
         font-size: 0.7rem;
@@ -987,7 +1222,7 @@
       }
     </style>
   </head>
-  <body data-phase="1">
+  <body data-phase="1" data-tab="map">
     <!-- ====================================================== -->
     <!-- LOGIN OVERLAY                                          -->
     <!-- ====================================================== -->
@@ -1228,6 +1463,7 @@
           data-panel="domestic"
           style="height: 100%; padding-right: 4px"
         >
+          <div class="tab-banner"><span class="tb-icon">🏰</span><span class="tb-name">국가 내정실</span><span class="tb-sub">스탯 · 경제 · 미션 · 헌법 — 나라 살림의 중심</span></div>
           <div id="domesticBody"></div>
         </section>
 
@@ -1292,6 +1528,7 @@
           data-panel="war"
           style="height: 100%; padding-right: 4px"
         >
+          <div class="tab-banner"><span class="tb-icon">💥</span><span class="tb-name">침략 상황실</span><span class="tb-sub">무력 폭격 · 문화 침투 — 신중하게, 대가는 큽니다</span></div>
           <div id="warBody"></div>
         </section>
 
@@ -1301,6 +1538,7 @@
           data-panel="field"
           style="height: 100%; padding-right: 4px"
         >
+          <div class="tab-banner"><span class="tb-icon">🎯</span><span class="tb-name">현장 미션</span><span class="tb-sub">카드 뽑기 · 실천 · 사진 인증 — 교실에서 몸으로!</span></div>
           <div id="fieldBody"></div>
         </section>
 
@@ -1310,6 +1548,7 @@
           data-panel="mcu"
           style="height: 100%; padding-right: 4px"
         >
+          <div class="tab-banner"><span class="tb-icon">👑</span><span class="tb-name">MCU 통제실</span><span class="tb-sub">마스터 전용 — 턴 · 미션 · 신의 손</span></div>
           <div id="mcuBody"></div>
         </section>
       </main>
@@ -2672,10 +2911,10 @@
         }
         const st = computeTurnStep();
         const steps = [
-          { key: "vote", icon: "📋", label: "필수 미션" },
-          { key: "field", icon: "🎯", label: "현장 미션" },
-          { key: "build", icon: "🗺️", label: "건설" },
-          { key: "war", icon: "💥", label: "침략(선택)" },
+          { key: "vote", icon: "📋", label: "필수 미션", tint: "var(--tab-domestic)" },
+          { key: "field", icon: "🎯", label: "현장 미션", tint: "var(--tab-field)" },
+          { key: "build", icon: "🗺️", label: "건설", tint: "var(--tab-map)" },
+          { key: "war", icon: "💥", label: "침략(선택)", tint: "var(--tab-war)" },
         ];
         let inner =
           '<div class="glass" style="padding:.5rem .7rem;display:flex;align-items:center;gap:.4rem;flex-wrap:wrap;font-size:.78rem;">';
@@ -2684,14 +2923,18 @@
         steps.forEach((s, i) => {
           const done = i < st.step;
           const active = i === st.step;
-          const color = done
-            ? "var(--good)"
-            : active
-              ? "var(--accent)"
-              : "var(--ink-faint)";
-          const bg = active ? "rgba(122,162,255,.18)" : "transparent";
+          /* ★ 각 단계는 대응하는 탭의 고유 색으로 표시 — 단계 ↔ 탭 색을 눈으로 연결 */
+          const color = done ? "var(--good)" : active ? s.tint : "var(--ink-faint)";
+          const bg = active
+            ? "color-mix(in srgb, " + s.tint + " 18%, transparent)"
+            : "transparent";
+          const border = active
+            ? "1px solid color-mix(in srgb, " + s.tint + " 45%, transparent)"
+            : "1px solid transparent";
           inner +=
-            '<span style="display:inline-flex;align-items:center;gap:.2rem;padding:.2rem .5rem;border-radius:999px;background:' +
+            '<span style="display:inline-flex;align-items:center;gap:.2rem;padding:.2rem .5rem;border-radius:999px;border:' +
+            border +
+            ";background:" +
             bg +
             ";color:" +
             color +
@@ -2748,6 +2991,7 @@
           return;
         }
         currentTab = name;
+        document.body.setAttribute("data-tab", name); // ★ 탭별 색 테마 전환
         $$(".tabbtn").forEach((b) =>
           b.classList.toggle("active", b.dataset.tab === name),
         );
