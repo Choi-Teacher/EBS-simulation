@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=resizes-content"
     />
     <title>E.B.S-Simulation</title>
 
@@ -1267,6 +1267,258 @@
         }
       }
     </style>
+
+    <!-- ============================================================
+         📱 MOBILE RESPONSIVE PATCH
+         PC/태블릿 레이아웃은 그대로 두고, 폰(≤700px)에서만
+         헤더/탭바/모달/채팅/패널을 재배치하는 오버라이드 레이어.
+         원본 마크업이 인라인 스타일을 쓰므로 !important 사용.
+         ============================================================ -->
+    <style id="mobile-fix">
+      /* ── ① 모바일 브라우저 주소창 대응: 진짜 보이는 높이(dvh) 사용 ── */
+      @supports (height: 100dvh) {
+        html,
+        body {
+          height: 100dvh;
+        }
+      }
+      /* dvh 미지원 구형 브라우저 → JS가 --realvh를 채워줌 */
+      @supports not (height: 100dvh) {
+        html,
+        body {
+          height: var(--realvh, 100%);
+        }
+      }
+
+      @media (max-width: 700px) {
+        /* ── ② 상단 HUD: 3덩어리(국가/칩/버튼)가 마구 접히던 것을
+               [국가 ↔ 버튼] 1줄 + [스탯 칩 가로 스크롤] 1줄로 고정 ── */
+        #app > header.glass {
+          margin: 6px 6px 0 !important;
+          padding: 0.4rem 0.55rem !important;
+          gap: 0.35rem 0.5rem !important;
+        }
+        #app > header.glass > div:first-child {
+          gap: 0.4rem !important;
+        }
+        #hudNation {
+          font-size: 0.88rem !important;
+        }
+        #hudUser {
+          font-size: 0.62rem !important;
+        }
+        /* 스탯 칩 묶음 → 맨 아랫줄 전체폭 + 가로 스크롤(줄바꿈 금지) */
+        #app > header.glass > div:nth-child(2) {
+          order: 3;
+          flex: 1 1 100% !important;
+          justify-content: flex-start !important;
+          flex-wrap: nowrap !important;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          padding-bottom: 2px;
+        }
+        #app > header.glass > div:nth-child(2)::-webkit-scrollbar {
+          display: none;
+        }
+        #app > header.glass .chip {
+          flex: 0 0 auto;
+          padding: 0.22rem 0.5rem;
+          font-size: 0.74rem;
+          gap: 0.3rem;
+        }
+        /* 우측 버튼 묶음 압축 */
+        #app > header.glass > div:nth-child(3) {
+          margin-left: auto;
+          gap: 0.35rem !important;
+        }
+        #envDonateBtn,
+        #logoutBtn {
+          padding: 0.28rem 0.5rem !important;
+          font-size: 0.7rem !important;
+        }
+        #guideHelpBtn {
+          padding: 0.28rem 0.5rem !important;
+          font-size: 0.85rem !important;
+        }
+        #turnBadge {
+          font-size: 0.62rem;
+        }
+
+        /* ── ③ 탭바: 가로 스크롤 유지 + 컴팩트, 스크롤바 숨김 ── */
+        #app > nav.glass {
+          margin: 6px !important;
+          padding: 0.3rem !important;
+          gap: 0.25rem !important;
+          scrollbar-width: none;
+        }
+        #app > nav.glass::-webkit-scrollbar {
+          display: none;
+        }
+        .tabbtn {
+          padding: 0.48rem 0.6rem 0.6rem !important;
+          font-size: 0.88rem;
+        }
+        .encyclo-toggle {
+          padding: 0.48rem 0.6rem !important;
+          font-size: 0.8rem;
+        }
+
+        /* ── ④ 메인 영역 여백 축소 → 게임 화면 최대화 ── */
+        #app > main {
+          margin: 0 6px 6px !important;
+        }
+        #turnStepBar {
+          margin: 0 6px 6px !important;
+        }
+        .tabpanel.scrolly {
+          padding-right: 0 !important;
+        }
+        /* 탭 배너: 부제목을 아랫줄로 내려 찌그러짐 방지 */
+        .tab-banner {
+          flex-wrap: wrap;
+          gap: 0.3rem 0.5rem;
+          padding: 0.45rem 0.6rem;
+          margin-bottom: 0.6rem;
+        }
+        .tab-banner .tb-name {
+          font-size: 0.92rem;
+        }
+        .tab-banner .tb-sub {
+          flex-basis: 100%;
+          margin-left: 0;
+          text-align: left;
+          font-size: 0.66rem;
+        }
+        /* 패널 내부 큰 제목 축소 (인라인 1.5rem 오버라이드) */
+        .tabpanel h2 {
+          font-size: 1.15rem !important;
+        }
+        .tabpanel h3 {
+          font-size: 1rem;
+        }
+
+        /* ── ⑤ 지도 탭: 좌상단 툴바 줄바꿈 허용 + 힌트 배지 숨김 ── */
+        [data-panel="map"] .glass > div:first-child {
+          top: 10px !important;
+          left: 10px !important;
+          right: 10px;
+          flex-wrap: wrap !important;
+          gap: 0.3rem !important;
+        }
+        [data-panel="map"] .glass > div:first-child .btn {
+          padding: 0.3rem 0.55rem !important;
+          font-size: 0.8rem;
+        }
+        [data-panel="map"] .glass > div:first-child .badge {
+          display: none; /* 🖱️ 드래그 안내는 터치 기기에서 무의미 */
+        }
+        #map3dDock {
+          bottom: 10px;
+          max-width: 96%;
+          gap: 0.3rem;
+        }
+        #map3dDock .visitbtn {
+          padding: 0.24rem 0.6rem;
+          font-size: 0.74rem;
+        }
+        #map3dLoc {
+          font-size: 0.82rem;
+          max-width: 92%;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+
+        /* ── ⑥ 모달: 폰 화면에 맞게 여백/높이 재조정 ── */
+        .modal-back {
+          padding: 10px !important;
+        }
+        .modal {
+          padding: 14px !important;
+          border-radius: 14px;
+          max-height: min(90vh, 90dvh);
+        }
+        .modal h2 {
+          font-size: 1.08rem !important;
+        }
+
+        /* ── ⑦ 플로팅 채팅: 화면 폭에 맞춰 늘리고 하단 안전영역 확보 ── */
+        #chatFab {
+          right: 12px;
+          bottom: calc(12px + env(safe-area-inset-bottom));
+          width: 52px;
+          height: 52px;
+          font-size: 1.3rem;
+        }
+        #chatPanel {
+          left: 8px;
+          right: 8px;
+          width: auto;
+          max-width: none;
+          bottom: calc(72px + env(safe-area-inset-bottom));
+          height: min(520px, calc(100dvh - 150px));
+          max-height: none;
+        }
+
+        /* ── ⑧ 사이드바/토스트/로그인 미세 조정 ── */
+        .side-drawer {
+          max-width: 88vw;
+        }
+        .toast {
+          bottom: calc(16px + env(safe-area-inset-bottom));
+          max-width: 92vw;
+          text-align: center;
+          font-size: 0.9rem;
+        }
+        #loginScreen > div {
+          padding: 22px 16px !important;
+        }
+
+        /* ── ⑨ iOS 입력창 자동 확대(레이아웃 튐) 방지: 16px 미만 금지 ── */
+        input,
+        select,
+        textarea {
+          font-size: 16px !important;
+        }
+
+        /* ── ⑩ 저사양 폰 성능: 무거운 블러를 절반으로 ── */
+        .glass {
+          backdrop-filter: blur(8px) saturate(130%);
+          -webkit-backdrop-filter: blur(8px) saturate(130%);
+        }
+        .glass-strong {
+          backdrop-filter: blur(10px) saturate(135%);
+          -webkit-backdrop-filter: blur(10px) saturate(135%);
+        }
+      }
+
+      /* 아주 좁은 폰(≤380px) 추가 압축 */
+      @media (max-width: 380px) {
+        .tabbtn {
+          padding: 0.42rem 0.48rem 0.55rem !important;
+          font-size: 0.8rem;
+        }
+        #app > header.glass .chip {
+          font-size: 0.68rem;
+          padding: 0.18rem 0.42rem;
+        }
+      }
+    </style>
+    <script>
+      /* dvh 미지원 브라우저용: 실제 보이는 높이를 --realvh로 공급.
+         키보드가 올라오거나 주소창이 접힐 때도 앱 높이가 따라감 */
+      (function () {
+        function setVH() {
+          document.documentElement.style.setProperty(
+            "--realvh",
+            window.innerHeight + "px",
+          );
+        }
+        setVH();
+        window.addEventListener("resize", setVH);
+        window.addEventListener("orientationchange", setVH);
+      })();
+    </script>
   </head>
   <body data-phase="1" data-tab="map">
     <!-- ====================================================== -->
