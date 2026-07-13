@@ -1704,6 +1704,24 @@
             🌱 환경기부
           </button>
           <button
+            id="backupBtn"
+            class="btn btn-ghost"
+            title="기록 전체를 JSON 파일로 백업 (오프라인·다른 기기에서도 열람 가능)"
+            style="padding: 0.35rem 0.6rem; font-size: 0.8rem; display: none"
+            onclick="exportBackup()"
+          >
+            💾 백업
+          </button>
+          <button
+            id="offlineFileBtn"
+            class="btn btn-ghost"
+            title="기록이 통째로 심어진 HTML 파일 생성 — 와이파이 없이 어떤 기기에서 열어도 기록이 보입니다"
+            style="padding: 0.35rem 0.6rem; font-size: 0.8rem; display: none"
+            onclick="makeOfflineFile()"
+          >
+            📀 오프라인 파일
+          </button>
+          <button
             id="guideHelpBtn"
             class="btn btn-ghost"
             title="게임 방법 보기"
@@ -1913,6 +1931,22 @@
       accept="image/*"
       capture="environment"
       style="display: none"
+    />
+    <!-- 📂 hidden input: 백업(JSON) 파일 불러오기 -->
+    <input
+      type="file"
+      id="backupInput"
+      accept=".json,application/json"
+      style="display: none"
+      onchange="importBackupFile(this)"
+    />
+    <!-- 📀 hidden input: 오프라인 파일 생성 시 원본 HTML 선택 (file://로 열었을 때) -->
+    <input
+      type="file"
+      id="offlineSrcInput"
+      accept=".html,text/html"
+      style="display: none"
+      onchange="offlineSrcChosen(this)"
     />
 
     <!-- ====================================================== -->
@@ -2125,27 +2159,399 @@
         return "rooms/" + ROOM_CODE + "/" + p;
       }
 
+      /* ----------------------------------------------------------------------------
+   📡 [A-2] 오프라인 기록 캐시 & 보기 모드
+   기록은 원래 Firebase '서버'에만 저장된다 → 와이파이 없이 파일만 열면 아무것도 안 보임.
+   해결:
+   ① 온라인 접속 중 서버에서 받은 모든 기록을 이 기기(localStorage)에 자동 복사
+   ② 오프라인으로 열면 마지막 저장본으로 '보기 전용' 입장
+   ③ 마스터는 기록을 JSON 파일로 백업/복원 가능 (다른 기기에서도 열람)
+---------------------------------------------------------------------------- */
+      const FB_CONFIG_SET = !!(
+        firebaseConfig.databaseURL &&
+        !firebaseConfig.databaseURL.includes("YOUR_PROJECT")
+      );
+      let OFFLINE_VIEW = false; // 오프라인 '보기 전용' 모드 여부
+      let OFFLINE_SNAP = null; // 보기 모드에서 쓰는 스냅샷 {savedAt, data:{meta,nations,...}}
+
+      function digPath(obj, path) {
+        const segs = String(path || "")
+          .split("/")
+          .filter(Boolean);
+        let cur = obj;
+        for (const s of segs) {
+          if (cur == null) return null;
+          cur = cur[s];
+        }
+        return cur === undefined ? null : cur;
+      }
+
+      /* ★ 파일에 '심어진' 기록 — '📀 오프라인 파일 만들기'로 생성한 파일은
+         아래 자리에 교실 기록 전체가 들어 있어, 인터넷 없이 어떤 기기에서
+         열어도 즉시 기록이 보인다. (원본 파일에서는 빈 객체) */
+      const EMBEDDED_SNAPSHOTS = /*__EMBED_START__*/ {} /*__EMBED_END__*/;
+
+      const OfflineCache = {
+        PREFIX: "ebs_offline::",
+        key(room) {
+          return this.PREFIX + (room || ROOM_CODE || "");
+        },
+        /* 현재 state 전체를 스냅샷으로 저장 — 온라인 동기화 때마다 호출됨 */
+        save() {
+          if (!FB_OK || OFFLINE_VIEW || !ROOM_CODE) return;
+          const payload = {
+            room: ROOM_CODE,
+            savedAt: Date.now(),
+            data: {
+              meta: state.meta,
+              nations: state.nations,
+              users: state.users,
+              chat: state.chat,
+              field: state.field,
+              fieldDone: state.fieldDone,
+              submissions: state.submissions,
+            },
+          };
+          try {
+            localStorage.setItem(this.key(), JSON.stringify(payload));
+          } catch (e) {
+            /* 용량 초과(주로 인증 사진 base64) → 사진만 빼고 재시도 */
+            try {
+              const slim = JSON.parse(JSON.stringify(payload));
+              if (slim.data.submissions) {
+                for (const id in slim.data.submissions) {
+                  const s = slim.data.submissions[id];
+                  if (s && typeof s === "object") {
+                    for (const k in s) {
+                      if (typeof s[k] === "string" && s[k].length > 2000) s[k] = "";
+                    }
+                  }
+                }
+              }
+              slim.photosDropped = true;
+              localStorage.setItem(this.key(), JSON.stringify(slim));
+            } catch (e2) {
+              console.warn("오프라인 캐시 저장 실패:", e2);
+            }
+          }
+        },
+        load(room) {
+          let fromLS = null;
+          try {
+            fromLS = JSON.parse(localStorage.getItem(this.key(room)) || "null");
+          } catch (e) {}
+          const emb = EMBEDDED_SNAPSHOTS[room] || null;
+          /* 이 기기의 캐시와 파일에 심어진 기록 중 더 최신 것을 사용 */
+          if (fromLS && emb)
+            return (fromLS.savedAt || 0) >= (emb.savedAt || 0) ? fromLS : emb;
+          return fromLS || emb;
+        },
+        rooms() {
+          const set = {};
+          try {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i);
+              if (k && k.indexOf(this.PREFIX) === 0)
+                set[k.slice(this.PREFIX.length)] = 1;
+            }
+          } catch (e) {}
+          for (const r in EMBEDDED_SNAPSHOTS) set[r] = 1;
+          return Object.keys(set);
+        },
+      };
+
+      /* 파일에 심어진 기록을 이 기기 캐시에도 복사 (더 최신일 때만) */
+      try {
+        for (const r in EMBEDDED_SNAPSHOTS) {
+          const emb = EMBEDDED_SNAPSHOTS[r];
+          if (!emb || !emb.data) continue;
+          let cur = null;
+          try {
+            cur = JSON.parse(localStorage.getItem(OfflineCache.PREFIX + r) || "null");
+          } catch (e) {}
+          if (!cur || (cur.savedAt || 0) < (emb.savedAt || 0)) {
+            try {
+              localStorage.setItem(OfflineCache.PREFIX + r, JSON.stringify(emb));
+            } catch (e) {}
+          }
+        }
+      } catch (e) {}
+
+      let _ocTimer = null;
+      function scheduleOfflineSave() {
+        clearTimeout(_ocTimer);
+        _ocTimer = setTimeout(() => OfflineCache.save(), 800);
+      }
+
+      /* 일부 환경(파일로 직접 열기·시크릿 모드 등)에서 sessionStorage 접근이
+         차단되면 로그인 자체가 죽어버리므로 — 실패해도 조용히 넘어가는 래퍼 */
+      const SafeSession = {
+        set(k, v) {
+          try {
+            sessionStorage.setItem(k, v);
+          } catch (e) {}
+        },
+        get(k) {
+          try {
+            return sessionStorage.getItem(k);
+          } catch (e) {
+            return null;
+          }
+        },
+        remove(k) {
+          try {
+            sessionStorage.removeItem(k);
+          } catch (e) {}
+        },
+      };
+
+      let _ownLast = 0;
+      function offlineWriteNotice() {
+        const now = Date.now();
+        if (now - _ownLast > 2500) {
+          _ownLast = now;
+          toast("📡 오프라인 보기 모드예요 — 변경사항은 저장되지 않아요.", "bad");
+        }
+        return Promise.resolve({ key: "offline" });
+      }
+
+      /* 오프라인 보기 모드 배지 (화면 좌하단 고정) */
+      function showOfflineBadge() {
+        if (document.getElementById("offlineBadge")) return;
+        const d = document.createElement("div");
+        d.id = "offlineBadge";
+        d.className = "jua";
+        const when =
+          OFFLINE_SNAP && OFFLINE_SNAP.savedAt
+            ? new Date(OFFLINE_SNAP.savedAt).toLocaleString("ko-KR")
+            : "";
+        d.innerHTML =
+          "📡 오프라인 보기 모드 (보기 전용)" +
+          (when
+            ? '<span style="opacity:.75;font-size:.68rem;"> · 저장 시점: ' + when + "</span>"
+            : "");
+        d.style.cssText =
+          "position:fixed;left:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:110;" +
+          "padding:.4rem .8rem;border-radius:999px;font-size:.78rem;color:#ffd7a1;" +
+          "background:rgba(60,35,5,.85);border:1px solid rgba(255,190,90,.55);" +
+          "box-shadow:0 6px 18px rgba(0,0,0,.5);pointer-events:none;max-width:92vw;";
+        document.body.appendChild(d);
+      }
+
+      /* 💾 백업 내보내기 (마스터) — 현재 기록 전체를 JSON 파일로 다운로드 */
+      function exportBackup() {
+        const payload = {
+          app: "EBS-Simulation",
+          room: ROOM_CODE,
+          savedAt: Date.now(),
+          data: {
+            meta: state.meta,
+            nations: state.nations,
+            users: state.users,
+            chat: state.chat,
+            field: state.field,
+            fieldDone: state.fieldDone,
+            submissions: state.submissions,
+          },
+        };
+        const blob = new Blob([JSON.stringify(payload, null, 1)], {
+          type: "application/json",
+        });
+        const a = document.createElement("a");
+        const d = new Date();
+        const stamp =
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0");
+        a.href = URL.createObjectURL(blob);
+        a.download = "EBS백업_" + (ROOM_CODE || "room") + "_" + stamp + ".json";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast("💾 백업 파일을 내려받았어요. 이 파일만 있으면 어느 기기에서든 기록을 볼 수 있어요!", "good");
+      }
+      window.exportBackup = exportBackup;
+
+      /* 📀 오프라인 파일 만들기 (마스터) —
+         이 기기에 저장된 모든 교실 기록 + 지금 보고 있는 기록을
+         HTML 파일 '안에' 심어서, 인터넷 없이 어떤 기기에서 열어도
+         기록이 바로 보이는 완전판 파일을 만들어 내려준다. */
+      function collectAllSnapshots() {
+        const snaps = {};
+        OfflineCache.rooms().forEach((r) => {
+          const s = OfflineCache.load(r);
+          if (s && s.data && s.data.nations) snaps[r] = s;
+        });
+        /* 지금 접속 중인 교실은 최신 상태로 갱신 */
+        if (ROOM_CODE && state.nations) {
+          snaps[ROOM_CODE] = {
+            room: ROOM_CODE,
+            savedAt: Date.now(),
+            data: {
+              meta: state.meta,
+              nations: state.nations,
+              users: state.users,
+              chat: state.chat,
+              field: state.field,
+              fieldDone: state.fieldDone,
+              submissions: state.submissions,
+            },
+          };
+        }
+        return snaps;
+      }
+      function buildOfflineFile(src, snaps) {
+        const marker = /\/\*__EMBED_START__\*\/[\s\S]*?\/\*__EMBED_END__\*\//;
+        if (!marker.test(src)) {
+          toast("⚠️ 선택한 파일에서 기록을 심을 자리를 찾지 못했어요. 이 게임의 HTML 파일이 맞는지 확인해주세요.", "bad");
+          return;
+        }
+        const json = JSON.stringify(snaps)
+          .replace(/</g, "\\u003c") // '<'를 전부 이스케이프 → 스크립트 태그 조기 종료 방지
+          .replace(/__EMBED_END__/g, "__EMBED-END__"); // 마커 오염 방지
+        const out = src.replace(
+          marker,
+          "/*__EMBED_START__*/ " + json + " /*__EMBED_END__*/",
+        );
+        const d = new Date();
+        const stamp =
+          d.getFullYear() +
+          "-" +
+          String(d.getMonth() + 1).padStart(2, "0") +
+          "-" +
+          String(d.getDate()).padStart(2, "0");
+        const blob = new Blob([out], { type: "text/html" });
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "EBS_기록내장_" + stamp + ".html";
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+        toast(
+          "📀 완성! 내려받은 파일(<b>" +
+            Object.keys(snaps).map(escapeHTML).join(", ") +
+            "</b> 교실 기록 포함)은 와이파이 없이 어떤 기기에서 열어도 기록이 보여요.",
+          "good",
+        );
+      }
+      async function makeOfflineFile() {
+        const snaps = collectAllSnapshots();
+        if (!Object.keys(snaps).length) {
+          toast("아직 내장할 기록이 없어요. 인터넷 연결 상태로 교실에 로그인한 뒤 다시 눌러주세요.", "bad");
+          return;
+        }
+        /* 서버에 호스팅된 경우엔 파일 원본을 자동으로 가져오고,
+           파일(file://)로 직접 연 경우엔 브라우저 보안상 자동으로 못 읽으므로
+           사용자가 게임 HTML 파일을 한 번 선택해주면 된다. */
+        let src = null;
+        try {
+          const res = await fetch(location.href);
+          if (res.ok) src = await res.text();
+        } catch (e) {}
+        if (src && src.indexOf("__EMBED_START__") === -1) src = null;
+        if (src) {
+          buildOfflineFile(src, snaps);
+        } else {
+          window._offlineSnapsPending = snaps;
+          toast("📀 게임 HTML 파일(지금 연 파일)을 선택해주세요 — 기록을 심어 새 파일로 만들어 드립니다.");
+          const inp = document.getElementById("offlineSrcInput");
+          if (inp) inp.click();
+        }
+      }
+      window.makeOfflineFile = makeOfflineFile;
+      window.offlineSrcChosen = function (input) {
+        const f = input.files && input.files[0];
+        input.value = "";
+        if (!f) return;
+        const r = new FileReader();
+        r.onload = () =>
+          buildOfflineFile(String(r.result), window._offlineSnapsPending || {});
+        r.readAsText(f);
+      };
+
+      /* 📂 백업 파일 불러오기 (로그인 화면) — 이 기기의 오프라인 캐시로 등록 */
+      function importBackupFile(input) {
+        const file = input.files && input.files[0];
+        input.value = "";
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const payload = JSON.parse(reader.result);
+            if (!payload || !payload.data || !payload.data.nations)
+              throw new Error("형식이 다른 파일");
+            const room = normalizeRoom(payload.room || "backup");
+            localStorage.setItem(
+              OfflineCache.PREFIX + room,
+              JSON.stringify(payload),
+            );
+            const roomInput = document.getElementById("loginRoom");
+            if (roomInput) roomInput.value = room;
+            const msg = document.getElementById("loginMsg");
+            if (msg) {
+              msg.style.color = "var(--good)";
+              msg.innerHTML =
+                "📂 백업을 불러왔어요! 교실 코드(<b>" +
+                escapeHTML(room) +
+                "</b>)가 자동 입력되었습니다.<br>평소 쓰던 계정(마스터/시민)으로 로그인하면 기록이 보여요.";
+            }
+          } catch (e) {
+            const msg = document.getElementById("loginMsg");
+            if (msg) {
+              msg.style.color = "var(--bad)";
+              msg.textContent = "⚠️ 백업 파일을 읽지 못했어요: " + e.message;
+            }
+          }
+        };
+        reader.readAsText(file);
+      }
+      window.importBackupFile = importBackupFile;
+
       /* Unified data layer: same calls whether on Firebase or Local fallback.
-         모든 경로는 roomPath()를 거쳐 교실별로 분리된다. */
+         모든 경로는 roomPath()를 거쳐 교실별로 분리된다.
+         📡 OFFLINE_VIEW일 땐 저장된 스냅샷을 읽기 전용으로 제공한다. */
       const Data = {
         get: (p) =>
-          FB_OK
-            ? DB.ref(roomPath(p))
-                .get()
-                .then((s) => s)
-            : LocalDB.get(roomPath(p)),
+          OFFLINE_VIEW
+            ? Promise.resolve({ val: () => digPath(OFFLINE_SNAP.data, p) })
+            : FB_OK
+              ? DB.ref(roomPath(p))
+                  .get()
+                  .then((s) => s)
+              : LocalDB.get(roomPath(p)),
         set: (p, v) =>
-          FB_OK ? DB.ref(roomPath(p)).set(v) : LocalDB.set(roomPath(p), v),
+          OFFLINE_VIEW
+            ? offlineWriteNotice()
+            : FB_OK
+              ? DB.ref(roomPath(p)).set(v)
+              : LocalDB.set(roomPath(p), v),
         update: (p, o) =>
-          FB_OK ? DB.ref(roomPath(p)).update(o) : LocalDB.update(roomPath(p), o),
+          OFFLINE_VIEW
+            ? offlineWriteNotice()
+            : FB_OK
+              ? DB.ref(roomPath(p)).update(o)
+              : LocalDB.update(roomPath(p), o),
         remove: (p) =>
-          FB_OK ? DB.ref(roomPath(p)).remove() : LocalDB.remove(roomPath(p)),
+          OFFLINE_VIEW
+            ? offlineWriteNotice()
+            : FB_OK
+              ? DB.ref(roomPath(p)).remove()
+              : LocalDB.remove(roomPath(p)),
         push: (p, v) =>
-          FB_OK ? DB.ref(roomPath(p)).push(v) : LocalDB.push(roomPath(p), v),
+          OFFLINE_VIEW
+            ? offlineWriteNotice()
+            : FB_OK
+              ? DB.ref(roomPath(p)).push(v)
+              : LocalDB.push(roomPath(p), v),
         onValue: (p, cb) =>
-          FB_OK
-            ? DB.ref(roomPath(p)).on("value", (s) => cb({ val: () => s.val() }))
-            : LocalDB.onValue(roomPath(p), cb),
+          OFFLINE_VIEW
+            ? cb({ val: () => digPath(OFFLINE_SNAP.data, p) })
+            : FB_OK
+              ? DB.ref(roomPath(p)).on("value", (s) => {
+                  cb({ val: () => s.val() });
+                  scheduleOfflineSave(); // ★ 온라인 동기화 때마다 오프라인용 사본 저장
+                })
+              : LocalDB.onValue(roomPath(p), cb),
       };
 
       /* ----------------------------------------------------------------------------
@@ -3016,15 +3422,34 @@
           return;
         }
 
+        /* 📡 오프라인(와이파이 없이 파일로 열기 등) —
+           서버 대신 이 기기에 저장된 마지막 기록으로 '보기 전용' 입장 */
+        if (!FB_OK && FB_CONFIG_SET) {
+          const cached = OfflineCache.load(room);
+          if (cached && cached.data && cached.data.nations) {
+            OFFLINE_VIEW = true;
+            OFFLINE_SNAP = cached;
+          } else {
+            msg.innerHTML =
+              "📡 지금은 인터넷이 없어 서버 기록을 불러올 수 없어요.<br>" +
+              "이 기기에는 <b>" +
+              escapeHTML(room) +
+              "</b> 교실의 저장된 기록이 없습니다.<br>" +
+              "<span style='font-size:.75rem;color:var(--ink-dim)'>· 인터넷이 있을 때 한 번 접속했던 기기·브라우저에서는 자동으로 오프라인 보기가 돼요.<br>· 또는 마스터가 내려받은 <b>백업 파일</b>을 아래 버튼으로 열어보세요.</span><br>" +
+              "<button class='btn' style='margin-top:.5rem;padding:.35rem .8rem;font-size:.8rem' onclick=\"document.getElementById('backupInput').click()\">📂 백업 파일 열기</button>";
+            return;
+          }
+        }
+
         // ★ 교실 코드 설정 후 그 교실의 데이터 리스너를 가동
         ROOM_CODE = room;
-        sessionStorage.setItem("civ_room", room);
+        SafeSession.set("civ_room", room);
         attachListeners();
 
         // master (hardcoded)
         if (u === MASTER_ID && p === MASTER_PW) {
           ME = { user: u, nation: null, role: "master" };
-          sessionStorage.setItem("civ_me", JSON.stringify(ME));
+          SafeSession.set("civ_me", JSON.stringify(ME));
           enterApp();
           // ensure a world exists for THIS room
           const snap = await Data.get("nations");
@@ -3047,7 +3472,7 @@
           return;
         }
         ME = { user: u, nation: rec.nation, role: "student" };
-        sessionStorage.setItem("civ_me", JSON.stringify(ME));
+        SafeSession.set("civ_me", JSON.stringify(ME));
         enterApp();
       }
 
@@ -3055,6 +3480,15 @@
         $("#loginScreen").style.display = "none";
         $("#app").style.display = "flex";
         $("#mcuTabBtn").style.display = ME.role === "master" ? "block" : "none";
+        /* 💾 백업·📀 오프라인 파일 버튼은 마스터에게만 · 📡 오프라인 보기 모드면 안내 배지 */
+        const bkBtn = $("#backupBtn");
+        if (bkBtn) bkBtn.style.display = ME.role === "master" ? "inline-flex" : "none";
+        const ofBtn = $("#offlineFileBtn");
+        if (ofBtn) ofBtn.style.display = ME.role === "master" ? "inline-flex" : "none";
+        if (OFFLINE_VIEW) {
+          showOfflineBadge();
+          toast("📡 오프라인 보기 모드 — 마지막 저장 기록을 보여드려요 (변경 저장 안 됨)", "good");
+        }
         if (ME.role === "master") masterView = masterView || "capital";
         buildEncyclopedia();
         buildGuide();
@@ -3072,8 +3506,8 @@
 
       function logout() {
         ME = null;
-        sessionStorage.removeItem("civ_me");
-        sessionStorage.removeItem("civ_room");
+        SafeSession.remove("civ_me");
+        SafeSession.remove("civ_room");
         closeMissionModal();
         // 교실/리스너를 깨끗이 초기화하기 위해 페이지를 새로고침
         // (다른 교실로 재로그인해도 데이터가 안 섞이도록)
@@ -4152,7 +4586,7 @@
         const want = pendingQRAgenda;
         pendingQRAgenda = null;
         try {
-          sessionStorage.removeItem("civ_qr_agenda");
+          SafeSession.remove("civ_qr_agenda");
         } catch (e) {}
         if (ME.role === "master") {
           toast("마스터는 통제실에서 미션을 전송하세요.", "warn");
@@ -9344,9 +9778,22 @@
           const w = $("#fbWarn");
           if (w) {
             w.style.display = "block";
-            w.innerHTML =
-              "⚠️ Firebase가 연결되지 않았습니다. 현재는 이 브라우저 한 대에서만 저장되는 <b>로컬 모드</b>로 동작합니다.<br>" +
-              "여러 PC에서 함께 하려면 코드 상단의 <code>firebaseConfig</code> 값을 본인 프로젝트 값으로 교체하세요.";
+            if (FB_CONFIG_SET) {
+              /* 설정은 되어 있는데 연결이 안 됨 = 오프라인(와이파이 없음/파일로 열기) */
+              const rooms = OfflineCache.rooms().filter(Boolean);
+              w.innerHTML =
+                "📡 <b>인터넷 연결이 없어 서버 기록에 접속할 수 없습니다.</b><br>" +
+                (rooms.length
+                  ? "이 기기에 저장된 교실 기록: <b style='color:var(--good)'>" +
+                    rooms.map(escapeHTML).join(", ") +
+                    "</b><br>위 교실 코드와 평소 계정으로 로그인하면 <b>마지막 저장 기록(보기 전용)</b>이 열립니다."
+                  : "이 기기에는 아직 저장된 기록이 없어요. 인터넷이 있을 때 한 번 접속하면 그때부터 자동 저장됩니다.") +
+                "<br><button class='btn' style='margin-top:.5rem;padding:.35rem .8rem;font-size:.78rem' onclick=\"document.getElementById('backupInput').click()\">📂 백업 파일로 기록 열기</button>";
+            } else {
+              w.innerHTML =
+                "⚠️ Firebase가 연결되지 않았습니다. 현재는 이 브라우저 한 대에서만 저장되는 <b>로컬 모드</b>로 동작합니다.<br>" +
+                "여러 PC에서 함께 하려면 코드 상단의 <code>firebaseConfig</code> 값을 본인 프로젝트 값으로 교체하세요.";
+            }
           }
         } else {
           /* Firebase 연결 진단 : 초기 false는 정상이므로 8초 타임아웃까지 기다림 */
@@ -9441,18 +9888,18 @@
           const raw =
             params.get("agenda") ||
             params.get("mission") ||
-            sessionStorage.getItem("civ_qr_agenda");
+            SafeSession.get("civ_qr_agenda");
           const norm = normalizeAgendaParam(raw);
           if (norm) {
             pendingQRAgenda = norm;
-            sessionStorage.setItem("civ_qr_agenda", norm); // 로그인 과정에서 새로고침돼도 기억
+            SafeSession.set("civ_qr_agenda", norm); // 로그인 과정에서 새로고침돼도 기억
           }
         } catch (e) {}
 
         /* 7) 세션 복원 — 새로고침해도 로그인 + 교실 유지 */
         try {
-          const savedRoom = sessionStorage.getItem("civ_room");
-          const saved = sessionStorage.getItem("civ_me");
+          const savedRoom = SafeSession.get("civ_room");
+          const saved = SafeSession.get("civ_me");
           if (saved && savedRoom) {
             ROOM_CODE = savedRoom; // ★ 교실 코드 먼저 복원
             attachListeners(); // 그 교실의 데이터 리스너 가동
